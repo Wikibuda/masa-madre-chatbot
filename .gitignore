@@ -1,0 +1,64 @@
+# Archivos temporales y de swap
+*.swp
+*.bak*
+*.swo
+*.swn
+*.tmp
+
+# Logs y archivos de diagnóstico
+*.log
+feedback_system.log
+pinecone_sync.log
+semantic_search.log
+
+# Datos sensibles y archivos generados
+chatbot_feedback.json
+products_for_pinecone.json
+products_with_embeddings_*.json
+shopify_products.json
+support_tickets.json
+improvement_suggestions.txt
+
+# Entorno virtual
+venv/
+venv-masamadre/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Variables de entorno (¡MUY IMPORTANTE!)
+.env
+.env.local
+.env.*.local
+.env.production
+.env.staging
+
+# Archivos del sistema
+.DS_Store
+Thumbs.db
+
+# Archivos de IDE
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+*.code-workspace
+
+# Archivos de construcción
+build/
+dist/
+*.egg-info/
+
+# Archivos de caché
+.cache/
+*.cache
+
+# Archivos de sistema operativo
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
