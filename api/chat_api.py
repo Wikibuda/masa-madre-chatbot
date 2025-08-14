@@ -4,11 +4,6 @@ API para el Chatbot de Masa Madre Monterrey
 - Proporciona endpoints para el widget de chat
 """
 
-from flask_cors import CORS
-
-app = Flask(__name__)
-CORS(app)  # Permitir todos los orígenes
-
 import sys
 import os
 # Añadir el directorio lib al PYTHONPATH
@@ -16,12 +11,18 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '../lib'))
 
 import json
 import logging
+import flask_cors
 from datetime import datetime
 from flask import Flask, request, jsonify
 from dotenv import load_dotenv
 from conversation_history import ConversationHistory
 from feedback_system import record_feedback
 from semantic_search import generate_chatbot_response, search_products
+from flask_cors import CORS
+
+
+app = Flask(__name__)
+CORS(app)  # Permitir todos los orígenes
 
 # Configurar logging
 logging.basicConfig(

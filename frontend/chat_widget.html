@@ -1,8 +1,8 @@
-<!-- Widget de chat para Masa Madre Monterrey -->
+<!-- Widget de chat para Masa Madre Monterrey - Versión no intrusiva -->
 <div id="masa-madre-chatbot" style="position: fixed; bottom: 20px; right: 20px; z-index: 10000; font-family: 'Helvetica Neue', Arial, sans-serif;">
   <div id="chatbot-header" style="background-color: #8B4513; color: white; padding: 12px 15px; border-radius: 50px; cursor: pointer; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 2px 10px rgba(0,0,0,0.15);">
     <div style="display: flex; align-items: center;">
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="margin-right: 8px;">
         <path d="M20 2H4C2.9 2 2 2.9 2 4V16C2 17.1 2.9 18 4 18H9L12 21L15 18H20C21.1 18 22 17.1 22 16V4C22 2.9 21.1 2 20 2Z" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
       </svg>
       <span>¿Necesitas ayuda?</span>
@@ -10,8 +10,13 @@
     <div id="chatbot-status" style="width: 10px; height: 10px; background-color: #4CAF50; border-radius: 50%;"></div>
   </div>
   
-  <div id="chatbot-body" style="display: none; background-color: white; border: 1px solid #ddd; border-radius: 12px; max-width: 350px; max-height: 70vh; overflow: hidden; box-shadow: 0 2px 20px rgba(0,0,0,0.15); margin-top: 10px; flex-direction: column; display: flex;">
-    <div id="chatbot-messages" style="flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 10px; font-size: 1rem;">
+  <div id="chatbot-body" style="display: none; background-color: white; border: 1px solid #ddd; border-radius: 12px; width: 350px; max-height: 500px; overflow: hidden; box-shadow: 0 2px 20px rgba(0,0,0,0.15); margin-top: 10px; flex-direction: column; display: flex;">
+    <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px; background-color: #8B4513; color: white; border-top-left-radius: 12px; border-top-right-radius: 12px;">
+      <span>Asistente de Panadería</span>
+      <button id="chatbot-close" style="background: none; border: none; color: white; font-size: 1.2em; cursor: pointer;">&times;</button>
+    </div>
+    
+    <div id="chatbot-messages" style="flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 10px; max-height: 350px;">
       <div class="message bot" style="background-color: #f1f1f1; color: #333; padding: 10px 15px; border-radius: 18px; max-width: 80%; margin-right: auto; border-bottom-left-radius: 4px;">
         ¡Hola! Soy tu asistente de panadería especializado en masa madre. ¿En qué puedo ayudarte hoy?
       </div>
@@ -93,24 +98,6 @@
     0%, 80%, 100% { transform: scale(0); }
     40% { transform: scale(1); }
   }
-
-  /* RESPONSIVE STYLES */
-  @media (max-width: 400px) {
-    #masa-madre-chatbot {
-      width: 90%;
-      padding: 5px;
-    }
-    .message {
-      font-size: 0.9rem;
-    }
-    #chatbot-send {
-      padding: 10px 15px;
-      font-size: 1.2em;
-    }
-    #chatbot-messages {
-      font-size: 0.9rem;
-    }
-  }
 </style>
 
 <script>
@@ -122,7 +109,7 @@
       input: document.getElementById('chatbot-input'),
       sendButton: document.getElementById('chatbot-send'),
       footer: document.getElementById('chatbot-footer'),
-      feedbackButtons: document.querySelectorAll('.feedback-btn'),
+      closeButton: document.getElementById('chatbot-close'),
       
       // Estado
       userId: null,
@@ -132,16 +119,28 @@
       
       // Inicializar
       init: function() {
-        this.setupEventListeners();
         this.loadUserId();
         this.checkAPIStatus();
+        this.setupEventListeners();
+        
+        // Forzar que el chat esté cerrado al inicio
+        this.body.style.display = 'none';
+        this.isChatOpen = false;
       },
       
       // Configurar listeners
       setupEventListeners: function() {
-        // Toggle chat
+        // Toggle chat al hacer clic en el header
         this.header.addEventListener('click', () => {
-          this.toggleChat();
+          if (!this.isChatOpen) {
+            this.openChat();
+          }
+        });
+        
+        // Cerrar chat al hacer clic en el botón de cerrar
+        this.closeButton.addEventListener('click', (e) => {
+          e.stopPropagation();
+          this.closeChat();
         });
         
         // Enviar mensaje
@@ -176,7 +175,7 @@
       
       // Verificar estado de la API
       checkAPIStatus: function() {
-        fetch('https://masa-madre-chatbot-api.onrender.com/api/health')
+        fetch('/api/health')
           .then(response => response.json())
           .then(data => {
             if (data.status === 'healthy') {
@@ -190,19 +189,27 @@
           });
       },
       
-      // Toggle chat
-      toggleChat: function() {
-        this.isChatOpen = !this.isChatOpen;
-        this.body.style.display = this.isChatOpen ? 'flex' : 'none';
+      // Abrir chat
+      openChat: function() {
+        this.body.style.display = 'flex';
+        this.isChatOpen = true;
         
-        if (this.isChatOpen && !this.userId) {
+        // Inicializar sesión si es la primera vez
+        if (!this.initialized) {
           this.initializeChatSession();
+          this.initialized = true;
         }
+      },
+      
+      // Cerrar chat
+      closeChat: function() {
+        this.body.style.display = 'none';
+        this.isChatOpen = false;
       },
       
       // Inicializar sesión de chat
       initializeChatSession: function() {
-        fetch('https://masa-madre-chatbot-api.onrender.com/api/chat/init', {
+        fetch('/api/chat/init', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
@@ -212,6 +219,8 @@
         .then(response => response.json())
         .then(data => {
           if (data.status === 'success') {
+            // Limpiar mensajes anteriores
+            this.messages.innerHTML = '';
             this.addMessage(data.welcome_message, 'bot');
           } else {
             this.addMessage('Lo siento, estoy teniendo problemas para iniciar la sesión de chat. Por favor, inténtalo de nuevo más tarde.', 'bot');
@@ -239,7 +248,7 @@
         this.isProcessing = true;
         
         // Enviar al backend
-        fetch('https://masa-madre-chatbot-api.onrender.com/api/chat/message', {
+        fetch('/api/chat/message', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
@@ -346,7 +355,7 @@
       submitFeedback: function(rating) {
         if (!this.lastResponse) return;
         
-        fetch('https://masa-madre-chatbot-api.onrender.com/api/chat/feedback', {
+        fetch('/api/chat/feedback', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
@@ -371,7 +380,7 @@
       
       // Solicitar soporte humano
       requestSupport: function(contactInfo) {
-        fetch('https://masa-madre-chatbot-api.onrender.com/api/chat/support', {
+        fetch('/api/chat/support', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
