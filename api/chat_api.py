@@ -20,9 +20,11 @@ from feedback_system import record_feedback
 from semantic_search import generate_chatbot_response, search_products
 from flask_cors import CORS
 
-
 app = Flask(__name__)
-CORS(app)  # Permitir todos los orígenes
+# Configurar CORS - ¡IMPORTANTE!
+# Reemplaza con tu dominio de Shopify
+shop_domain = os.getenv('SHOP_DOMAIN', 'https://masamadremonterrey.com')
+CORS(app, resources={r"/api/*": {"origins": shop_domain}}) #Permitir todos los orígenes
 
 # Configurar logging
 logging.basicConfig(
