@@ -137,6 +137,7 @@ def record_feedback(query, response, provider, rating, user_comment="", session_
     
     return feedback_record
 
+
 def get_feedback_summary():
     """
     Obtiene un resumen básico de la retroalimentación sin usar pandas
@@ -147,7 +148,7 @@ def get_feedback_summary():
         with open(feedback_system["file"], 'r') as f:
             feedback_data = json.load(f)
         
-        if not feedback_
+        if not feedback_data:  # ✅ CORRECCIÓN: feedback_data en lugar de feedback_
             return {
                 "total_feedback": 0,
                 "average_rating": 0,
