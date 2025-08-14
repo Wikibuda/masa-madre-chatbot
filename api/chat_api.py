@@ -4,7 +4,11 @@ API para el Chatbot de Masa Madre Monterrey
 - Proporciona endpoints para el widget de chat
 """
 
+import sys
 import os
+# Añadir el directorio lib al PYTHONPATH
+sys.path.append(os.path.join(os.path.dirname(__file__), '../lib'))
+
 import json
 import logging
 from datetime import datetime
