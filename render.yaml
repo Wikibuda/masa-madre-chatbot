@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: masa-madre-chatbot-api
+    env: python
+    region: us-east
+    plan: starter
+    buildCommand: "pip install numpy==1.26.4 && pip install -r requirements.txt"
+    startCommand: "python api/chat_api.py"
+    envVars:
+      - key: PORT
+        value: 10000
+      - key: PINECONE_API_KEY
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: MISTRAL_API_KEY
+        sync: false
