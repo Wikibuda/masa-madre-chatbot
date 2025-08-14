@@ -1,6 +1,15 @@
 import os
 import json
 import pandas as pd
+
+#import pandas as pd
+# Con esto:
+try:
+    import pandas as pd
+except ImportError:
+    pd = None
+    print("⚠️ Pandas no está disponible. Funcionalidad de análisis limitada.")
+
 from datetime import datetime
 from dotenv import load_dotenv
 from pinecone import Pinecone
