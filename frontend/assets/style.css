@@ -1,0 +1,74 @@
+<style>
+  .message.user {
+    background-color: #8B4513;
+    color: white;
+    padding: 10px 15px;
+    border-radius: 18px;
+    max-width: 80%;
+    margin-left: auto;
+    border-bottom-right-radius: 4px;
+  }
+  .message.bot {
+    background-color: #f1f1f1;
+    color: #333;
+    padding: 10px 15px;
+    border-radius: 18px;
+    max-width: 80%;
+    margin-right: auto;
+    border-bottom-left-radius: 4px;
+  }
+  .product-suggestion {
+    background-color: #fff9f9;
+    border: 1px solid #ffe0e0;
+    border-radius: 8px;
+    padding: 10px;
+    margin-top: 8px;
+  }
+  .product-title {
+    font-weight: bold;
+    color: #8B4513;
+    margin-bottom: 5px;
+  }
+  .product-price {
+    color: #555;
+    font-size: 0.9em;
+  }
+  .loading-dots {
+    display: inline-block;
+    width: 40px;
+  }
+  .loading-dots span {
+    height: 8px;
+    width: 8px;
+    background-color: #888;
+    border-radius: 50%;
+    display: inline-block;
+    margin: 0 1px;
+    animation: loading 1.4s infinite ease-in-out both;
+  }
+  .loading-dots span:nth-child(1) { animation-delay: -0.32s; }
+  .loading-dots span:nth-child(2) { animation-delay: -0.16s; }
+  @keyframes loading {
+    0%, 80%, 100% { transform: scale(0); }
+    40% { transform: scale(1); }
+  }
+
+  /* RESPONSIVE STYLES */
+  @media (max-width: 400px) {
+    #masa-madre-chatbot {
+      width: 90%;
+      padding: 5px;
+    }
+    .message {
+      font-size: 0.9rem;
+    }
+    #chatbot-send {
+      padding: 10px 15px;
+      font-size: 1.2em;
+    }
+    #chatbot-messages {
+      font-size: 0.9rem;
+    }
+  }
+</style>
+
