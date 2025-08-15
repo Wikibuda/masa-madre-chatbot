@@ -32,7 +32,8 @@ load_dotenv()
 # Permitir múltiples dominios
 allowed_origins = [
     "https://masamadremonterrey.com",
-    "https://www.masamadremonterrey.com"
+    "https://www.masamadremonterrey.com",
+    "https://account.masamadremonterrey.com/"
 ]
 
 app = Flask(__name__)
@@ -44,7 +45,9 @@ CORS(app, resources={
         "allow_headers": ["Content-Type"],
         "supports_credentials": True
     }
-}) #Permitir todos los orígenes
+}) 
+# O para permitir todos los orígenes (solo para desarrollo)
+# CORS(app)
 
 # Almacenamiento temporal de sesiones (en producción usa Redis o base de datos)
 sessions = {}
@@ -76,20 +79,36 @@ def init_chat():
         }), 500
 
 @app.route('/api/chat/message', methods=['POST'])
+@app.route('/api/chat/message', methods=['POST'])
 def handle_message():
     """Procesa un mensaje del usuario"""
     try:
+        # Log detallado de la solicitud
         data = request.json
+        logger.info(f"📩 Mensaje recibido: {json.dumps(data)}")
+        
         user_id = data.get('user_id')
         message = data.get('message', '').strip()
         
-        if not user_id or user_id not in sessions:
+        # Diagnóstico detallado
+        if not user_id:
+            logger.error("❌ Error: user_id no proporcionado en la solicitud")
+            return jsonify({
+                "status": "error",
+                "message": "user_id es requerido"
+            }), 400
+        
+        if user_id not in sessions:
+            logger.error(f"❌ Error: Sesión no encontrada para user_id: {user_id}")
+            # Para diagnóstico, listar todas las sesiones
+            logger.info(f"📊 Sesiones activas: {list(sessions.keys())}")
             return jsonify({
                 "status": "error",
                 "message": "Sesión no válida. Por favor, inicia una nueva sesión."
             }), 400
         
         if not message:
+            logger.error("❌ Error: Mensaje vacío recibido")
             return jsonify({
                 "status": "error",
                 "message": "El mensaje no puede estar vacío"

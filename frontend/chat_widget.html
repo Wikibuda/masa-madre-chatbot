@@ -121,6 +121,13 @@ const API_URL = 'https://masa-madre-chatbot-api.onrender.com/api'; // ¡REEMPLAZ
         this.loadUserId();
         this.setupEventListeners();
         this.checkApiStatus();
+        
+        // Asegurar que haya una sesión activa al abrir el chat
+        this.header.addEventListener('click', () => {
+            if (!this.userId) {
+                this.initializeChatSession();
+            }
+         });
       },
       
       // Carga o crea un ID de usuario único
@@ -147,6 +154,7 @@ const API_URL = 'https://masa-madre-chatbot-api.onrender.com/api'; // ¡REEMPLAZ
             this.sendMessage();
           }
         });
+    }
         
         // Configurar botones de retroalimentación
         document.querySelectorAll('.feedback-btn').forEach(btn => {
@@ -216,72 +224,65 @@ const API_URL = 'https://masa-madre-chatbot-api.onrender.com/api'; // ¡REEMPLAZ
       
       // Envía un mensaje al backend
       sendMessage: function() {
-        const message = this.input.value.trim();
-        if (!message || this.isProcessing) return;
-        
-        // Mostrar mensaje del usuario
-        this.addMessage(message, 'user');
-        this.input.value = '';
-        
-        // Mostrar indicador de carga
-        const loadingId = 'loading_' + Date.now();
-        this.addLoadingIndicator(loadingId);
-        
-        this.isProcessing = true;
-        
-        // Enviar al backend
-        fetch(`${API_URL}/message`, {
-          method: 'POST',
-          headers: {
+    const message = this.input.value.trim();
+    if (!message || this.isProcessing) return;
+    
+    // Asegurarse de que haya un user_id válido
+    if (!this.userId) {
+        this.initializeChatSession();
+        // Esperar un momento antes de enviar el mensaje
+        setTimeout(() => {
+            this.sendMessage();
+        }, 500);
+        return;
+    }
+    
+    // Mostrar mensaje del usuario
+    this.addMessage(message, 'user');
+    this.input.value = '';
+    
+    // Mostrar loading
+    const loadingId = 'loading_' + Date.now();
+    this.addLoadingIndicator(loadingId);
+    
+    this.isProcessing = true;
+    
+    // Enviar al backend
+    fetch('https://masa-madre-chatbot-api.onrender.com/api/chat/message', {
+        method: 'POST',
+        headers: {
             'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
+        },
+        body: JSON.stringify({
             user_id: this.userId,
             message: message
-          })
         })
-        .then(response => {
-          // Remover indicador de carga
-          this.removeElement(loadingId);
-          
-          if (!response.ok) {
-            throw new Error('Network response was not ok');
-          }
-          return response.json();
-        })
-        .then(data => {
-          if (data.status === 'success') {
-            // Guardar última respuesta para retroalimentación
-            this.lastResponse = {
-              query: message,
-              response: data.response
-            };
-            
-            // Mostrar respuesta del bot
-            this.addMessage(data.response, 'bot');
-            
-            // Mostrar productos relacionados si existen
-            if (data.sources && data.sources.length > 0) {
-              this.showProductSuggestions(data.sources);
-            }
-            
-            // Mostrar footer de retroalimentación
-            this.footer.style.display = 'block';
-          } else {
-            this.addMessage('Lo siento, estoy teniendo problemas para procesar tu consulta. Por favor, inténtalo de nuevo más tarde.', 'bot');
-          }
-        })
-        .catch(error => {
-          console.error('Error sending message:', error);
-          // Remover indicador de carga
-          this.removeElement(loadingId);
-          this.addMessage('Hubo un error al procesar tu mensaje. Por favor, inténtalo de nuevo.', 'bot');
-        })
-        .finally(() => {
-          this.isProcessing = false;
-        });
-      },
-      
+    })
+    .then(response => {
+        // Agregar log detallado para diagnóstico
+        console.log(`📡 Estado de respuesta: ${response.status}`);
+        if (!response.ok) {
+            return response.json().then(err => {
+                console.error('❌ Detalles del error:', err);
+                throw new Error(err.message || 'Network response was not ok');
+            });
+        }
+        return response.json();
+    })
+    .then(data => {
+        // Resto del código...
+    })
+    .catch(error => {
+        console.error('❌ Error sending message:', error);
+        this.removeElement(loadingId);
+        this.addMessage('Hubo un error al procesar tu mensaje. Por favor, inténtalo de nuevo.', 'bot');
+    })
+    .finally(() => {
+        this.isProcessing = false;
+    });
+}
+
+
       // Muestra sugerencias de productos
       showProductSuggestions: function(sources) {
         let sourcesHTML = '<div class="product-suggestion" style="margin-top: 8px; padding: 8px; border-radius: 8px; background-color: #f9f9f9;">';
