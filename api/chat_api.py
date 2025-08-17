@@ -33,24 +33,57 @@ load_dotenv()
 allowed_origins = [
     "https://masamadremonterrey.com",
     "https://www.masamadremonterrey.com",
+    "file://",
     "https://account.masamadremonterrey.com/"
 ]
 
 app = Flask(__name__)
+
 # Configuración avanzada de CORS
-CORS(app, resources={
-    r"/api/*": {
-        "origins": allowed_origins,
-        "methods": ["GET", "POST", "OPTIONS"],
-        "allow_headers": ["Content-Type"],
-        "supports_credentials": True
-    }
-}) 
 # O para permitir todos los orígenes (solo para desarrollo)
 # CORS(app)
 
+CORS(app, resources={
+    r"/api/*": {
+        "origins": allowed_origins,
+        "methods": ["GET", "POST", "OPTIONS", "PUT", "DELETE"],
+        "allow_headers": [
+            "Content-Type",
+            "Authorization",
+            "X-Requested-With",
+            "Accept",
+            "Origin"
+        ],
+        "supports_credentials": True,
+        "max_age": 3600  # Cache de preflight requests
+    }
+})
+
 # Almacenamiento temporal de sesiones (en producción usa Redis o base de datos)
 sessions = {}
+
+# Intercepta todas las solicitudes OPTIONS
+@app.before_request
+def handle_preflight():
+    if request.method == "OPTIONS":
+        response = make_response()
+        # Ajusta estos valores según tu configuración de CORS
+        response.headers.add("Access-Control-Allow-Origin",0) # O usa tu lista específica
+        response.headers.add('Access-Control-Allow-Headers', "*")
+        response.headers.add('Access-Control-Allow-Methods', "*")
+        response.headers.add('Access-Control-Max-Age', "3600")
+        return response
+
+# Agrega headers CORS a todas las respuestas
+@app.after_request
+def after_request(response):
+    # Asegúrate de que estos valores coincidan con tu configuración de CORS
+    response.headers.add('Access-Control-Allow-Origin',0) # O usa tu lista específica
+    response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization,X-Requested-With,Accept,Origin')
+    response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
+    response.headers.add('Access-Control-Allow-Credentials', 'true')
+    return response
+
 
 @app.route('/api/chat/init', methods=['POST'])
 def init_chat():
@@ -78,7 +111,6 @@ def init_chat():
             "message": "Error al iniciar la sesión de chat"
         }), 500
 
-@app.route('/api/chat/message', methods=['POST'])
 @app.route('/api/chat/message', methods=['POST'])
 def handle_message():
     """Procesa un mensaje del usuario"""
