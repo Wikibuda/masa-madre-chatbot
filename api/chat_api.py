@@ -33,7 +33,7 @@ load_dotenv()
 allowed_origins = [
     "https://masamadremonterrey.com",
     "https://www.masamadremonterrey.com",
-    "file://*",
+    "*",
     "https://account.masamadremonterrey.com/"
 ]
 

@@ -180,7 +180,7 @@
 
     <script>
         // Reemplaza TODAS las ocurrencias de '/api/' con tu URL de Render
-        const API_URL = 'https://masa-madre-chatbot-api.onrender.com/api'; // ¡REEMPLAZA CON TU URL!
+        const API_URL = 'https://masa-madre-chatbot-api.onrender.com'; // ¡REEMPLAZA CON TU URL!
 
         document.addEventListener('DOMContentLoaded', function() {
             // Variables globales del chatbot
@@ -250,7 +250,7 @@
                 
                 // Verifica el estado de la API
                 checkApiStatus: function() {
-                    fetch(`${API_URL}/health`)
+                    fetch(`${API_URL}/api/health`)
                         .then(response => response.json())
                         .then(data => {
                             const statusDot = document.getElementById('chatbot-status');
@@ -281,7 +281,7 @@
                 
                 // Inicializa una sesión de chat
                 initializeChatSession: function() {
-                    fetch(`${API_URL}/init`, {
+                    fetch(`${API_URL}/api/chat/init`, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json'
@@ -329,7 +329,7 @@
                     this.isProcessing = true;
                     
                     // Enviar al backend
-                    fetch(`${API_URL}/chat/message`, {
+                    fetch(`${API_URL}/api/chat/message`, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json'
@@ -441,7 +441,7 @@
                 submitFeedback: function(rating) {
                     if (!this.lastResponse) return;
                     
-                    fetch(`${API_URL}/feedback`, {
+                    fetch(`${API_URL}/api/chat/feedback`, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json'
@@ -477,7 +477,7 @@
                             this.addMessage(`Información de contacto: ${contactInfo}`, 'user');
                             
                             // Enviar solicitud de soporte
-                            fetch(`${API_URL}/support`, {
+                            fetch(`${API_URL}/api/chat/support`, {
                                 method: 'POST',
                                 headers: {
                                     'Content-Type': 'application/json'
