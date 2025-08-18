@@ -12,7 +12,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '../lib'))
 import json
 import logging
 from datetime import datetime
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, make_response
 from dotenv import load_dotenv
 from conversation_history import ConversationHistory
 from feedback_system import record_feedback
