@@ -39,7 +39,8 @@ allowed_origins = [
     "https://account.masamadremonterrey.com",
     "http://localhost:8080", # Para pruebas locales
     "http://127.0.0.1:8080", # Para pruebas locales
-    "file://" # Para archivos HTML locales
+    "*", # Para pruebas locales
+    "file:///" # Para archivos HTML locales
 ]
 
 app = Flask(__name__)
