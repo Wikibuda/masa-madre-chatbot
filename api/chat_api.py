@@ -263,13 +263,21 @@ def handle_message():
         logger.info(f"📤 Mensaje procesado y respuesta enviada para el usuario {user_id}")
         return jsonify(response_data)
 
-    except Exception as e:
-        # Error crítico no relacionado con la generación de respuesta
-        logger.critical(f"❌ Error crítico no manejado en /api/chat/message: {str(e)}", exc_info=True)
-        return jsonify({
-            "status": "error",
-            "message": "Error interno del servidor al procesar tu mensaje"
-        }), 500
+    except Exception as generation_error: # <-- Este bloque es clave
+    logger.error(f"❌ Error crítico en generate_chatbot_response para {user_id}: {str(generation_error)}", exc_info=True)
+    # Devolver una respuesta de error estructurada pero sin romper el flujo
+    return jsonify({
+        "status": "success", # Mantener "success" para que el frontend lo procese como mensaje normal
+        "response": (
+            "Ups, parece que tuve un pequeño problema interno al formular mi respuesta. "
+            "¿Podrías repetir tu pregunta o intentar con otra? Estoy aquí para ayudarte."
+            # Opcionalmente, puedes sugerir "soporte" aquí si el error es recurrente.
+        ),
+        "sources": [],
+        "user_id": user_id,
+        "error_flag": True, # Bandera opcional para el frontend
+        "error_type": "generation_error"
+    })
 
 @app.route('/api/chat/feedback', methods=['POST'])
 def handle_feedback():
