@@ -402,7 +402,7 @@ def request_support():
              logger.warning(f"⚠️ Solicitud de soporte: Historial vacío para {user_id}")
             # No necesariamente un error, podría ser la primera interacción
             # Decidir si se permite o no soporte sin historial
-            full_history = [] # Proceder con historial vacío
+             full_history = [] # Proceder con historial vacío
 
         # Importar y llamar a la función de creación de ticket
         # Mover el import al interior del try para manejar errores de importación
