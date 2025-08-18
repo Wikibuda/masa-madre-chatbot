@@ -62,28 +62,17 @@ CORS(app, resources={
 # Almacenamiento temporal de sesiones (en producción usa Redis o base de datos)
 sessions = {}
 
-# Intercepta todas las solicitudes OPTIONS
+# Agrega headers CORS a todas las respuestas
 @app.before_request
 def handle_preflight():
     if request.method == "OPTIONS":
         response = make_response()
-        # Ajusta estos valores según tu configuración de CORS
-        response.headers.add("Access-Control-Allow-Origin","0") # O usa tu lista específica
-        response.headers.add('Access-Control-Allow-Headers', "*")
-        response.headers.add('Access-Control-Allow-Methods', "*")
-        response.headers.add('Access-Control-Max-Age', "3600")
         return response
 
-# Agrega headers CORS a todas las respuestas
 @app.after_request
 def after_request(response):
-    # Asegúrate de que estos valores coincidan con tu configuración de CORS
-    response.headers.add('Access-Control-Allow-Origin',"0") # O usa tu lista específica
-    response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization,X-Requested-With,Accept,Origin')
-    response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
-    response.headers.add('Access-Control-Allow-Credentials', 'true')
+    # Flask-CORS ya debería manejar los headers, pero puedes agregar extras si necesitas
     return response
-
 
 @app.route('/api/chat/init', methods=['POST'])
 def init_chat():
