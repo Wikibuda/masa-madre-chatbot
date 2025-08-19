@@ -1,8 +1,11 @@
+# support_system.py
 import os
 import json
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+# Importar Header para manejar codificación UTF-8 en correos
+from email.header import Header 
 from datetime import datetime
 import logging
 from dotenv import load_dotenv
@@ -47,13 +50,16 @@ def create_support_ticket(query, response, conversation_history, contact_info, p
         reason (str): Razón de la derivación
     
     Returns:
-        dict: Información del ticket creado
+        str: El ID del ticket creado (e.g., "TICKET-1234567890")
     """
     support_system = initialize_support_system()
     
-    # Crear ticket
+    # Generar el ID del ticket primero para usarlo en logs y posibles errores
+    ticket_id = f"TICKET-{int(datetime.now().timestamp())}"
+    
+    # Crear ticket como diccionario
     ticket = {
-        "ticket_id": f"TICKET-{int(datetime.now().timestamp())}",
+        "ticket_id": ticket_id, # Usar el ID generado
         "timestamp": datetime.now().isoformat(),
         "query": query,
         "last_response": response,
@@ -66,26 +72,43 @@ def create_support_ticket(query, response, conversation_history, contact_info, p
     
     # Guardar en archivo
     try:
-        with open(support_system["tickets_file"], 'r') as f:
-            tickets = json.load(f)
+        # Leer tickets existentes
+        try:
+            with open(support_system["tickets_file"], 'r') as f:
+                tickets = json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError):
+            # Si el archivo no existe o está corrupto, empezar con una lista vacía
+            tickets = []
+            logger.info(f"Archivo de tickets no encontrado o vacío. Creando uno nuevo: {support_system['tickets_file']}")
         
+        # Añadir el nuevo ticket
         tickets.append(ticket)
         
+        # Guardar la lista actualizada
         with open(support_system["tickets_file"], 'w') as f:
-            json.dump(tickets, f, indent=2)
+            json.dump(tickets, f, indent=2, ensure_ascii=False) # ensure_ascii=False para caracteres especiales
         
         logger.info(f"✅ Ticket creado: {ticket['ticket_id']} (Prioridad: {priority})")
+        
     except Exception as e:
-        logger.error(f"❌ Error al guardar ticket: {str(e)}")
-    
+        error_msg = f"❌ Error al guardar ticket {ticket_id}: {str(e)}"
+        logger.error(error_msg)
+        # Dependiendo de la política, podrías relanzar la excepción
+        # para que el backend la capture y maneje adecuadamente.
+        # raise Exception(error_msg) 
+        
     # Enviar notificación por correo si está habilitado
-    if support_system["email_enabled"]:
+    if support_system.get("email_enabled", False): # Uso de .get para evitar KeyError
         try:
             send_support_notification(ticket)
         except Exception as e:
-            logger.error(f"❌ Error al enviar notificación por correo: {str(e)}")
+            logger.error(f"❌ Error al enviar notificación por correo para ticket {ticket_id}: {str(e)}")
+            # No se relanza esta excepción para no romper la creación del ticket por fallo de email
     
-    return ticket
+    # --- CAMBIO CLAVE: Devolver solo el ID del ticket como string ---
+    # El backend (chat_api.py) espera un identificador simple.
+    return ticket_id
+    # --- FIN CAMBIO CLAVE ---
 
 def send_support_notification(ticket):
     """Envía una notificación por correo al equipo de soporte"""
@@ -99,6 +122,11 @@ def send_support_notification(ticket):
     smtp_user = os.getenv('SUPPORT_EMAIL_USER')
     smtp_password = os.getenv('SUPPORT_EMAIL_PASSWORD')
     
+    # Verificar que las credenciales estén configuradas
+    if not all([sender_email, receiver_email, smtp_server, smtp_user, smtp_password]):
+        logger.warning("⚠️ Configuración de correo incompleta. No se enviará notificación.")
+        return
+
     # Crear mensaje
     subject = f"[{ticket['priority'].upper()}] Nuevo ticket de soporte - {ticket['ticket_id']}"
     
@@ -129,13 +157,14 @@ Historial de la conversación:
 Por favor, atiende este ticket lo antes posible.
 """
     
-    # Crear mensaje de correo CON CODIFICACIÓN UTF-8 (CORRECCIÓN CLAVE)
+    # Crear mensaje de correo CON CODIFICACIÓN UTF-8
     message = MIMEMultipart()
     message["From"] = sender_email
     message["To"] = receiver_email
-    message["Subject"] = Header(subject, 'utf-8')  # Codificar el asunto en UTF-8
+    # Codificar el asunto en UTF-8 para evitar errores con caracteres especiales
+    message["Subject"] = Header(subject, 'utf-8') 
     
-    # Agregar cuerpo con codificación UTF-8 (CORRECCIÓN CLAVE)
+    # Agregar cuerpo con codificación UTF-8
     message.attach(MIMEText(body, "plain", "utf-8"))
     
     # Enviar correo
@@ -147,6 +176,7 @@ Por favor, atiende este ticket lo antes posible.
         logger.info(f"📧 Notificación de soporte enviada a {receiver_email}")
     except Exception as e:
         logger.error(f"❌ Error al enviar notificación de soporte: {str(e)}")
+        # Relanzar la excepción para que el llamador (create_support_ticket) la maneje si es necesario
         raise
 
 def get_open_tickets():
@@ -178,7 +208,7 @@ def close_ticket(ticket_id, resolution_notes=""):
                 break
         
         with open(support_system["tickets_file"], 'w') as f:
-            json.dump(tickets, f, indent=2)
+            json.dump(tickets, f, indent=2, ensure_ascii=False)
         
         logger.info(f"✅ Ticket cerrado: {ticket_id}")
         return True
@@ -188,15 +218,16 @@ def close_ticket(ticket_id, resolution_notes=""):
 
 # Para pruebas rápidas
 if __name__ == "__main__":
-    logger = logging.getLogger()
-    logger.setLevel(logging.INFO)
+    # Configurar logging para pruebas
+    logging.basicConfig(level=logging.INFO)
+    logger = logging.getLogger(__name__) 
     
     print("="*50)
     print("🔄 Probando el sistema de soporte")
     print("="*50)
     
     # Crear un ticket de prueba
-    test_ticket = create_support_ticket(
+    test_ticket_id = create_support_ticket( # Recibir solo el ID
         query="¿Cómo puedo personalizar mis cestas de ratán?",
         response="Lo siento, no tengo información específica sobre personalización de cestas.",
         conversation_history=[
@@ -217,14 +248,18 @@ if __name__ == "__main__":
     )
     
     print("\n✅ Ticket de prueba creado exitosamente")
-    print(f"   ID del ticket: {test_ticket['ticket_id']}")
-    print(f"   Prioridad: {test_ticket['priority']}")
+    print(f"   ID del ticket: {test_ticket_id}") # Imprimir el ID devuelto
+    print(f"   Prioridad: alta") # Imprimir prioridad usada
     
     # Listar tickets abiertos
     open_tickets = get_open_tickets()
     print(f"\nℹ️ Tickets abiertos: {len(open_tickets)}")
     
-    # Cerrar el ticket de prueba
-    close_ticket(test_ticket['ticket_id'], "El cliente fue contactado y se le proporcionó información sobre personalización")
+    # Cerrar el ticket de prueba (usando el ID devuelto)
+    if close_ticket(test_ticket_id, "El cliente fue contactado y se le proporcionó información sobre personalización"):
+        print(f"\n✅ Ticket {test_ticket_id} cerrado exitosamente")
+    else:
+        print(f"\n⚠️ No se pudo cerrar el ticket {test_ticket_id}")
     
     print("\n✅ Pruebas completadas exitosamente")
+

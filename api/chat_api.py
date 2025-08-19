@@ -297,7 +297,7 @@ def request_support():
 
         if not full_history:
              logger.warning(f"⚠️ Solicitud de soporte: Historial vacío para {user_id}")
-             full_history = []
+            full_history = []
 
         # Preparar datos para el ticket
         last_query = ""
@@ -307,8 +307,12 @@ def request_support():
             last_query = last_exchange.get('query', 'No disponible')
             last_response = last_exchange.get('response', 'No disponible')
 
-        # --- CAMBIO CLAVE: Capturar el ID del ticket ---
+        # --- CORRECCIÓN CLAVE: Manejo robusto de la creación del ticket ---
+        ticket_id = None
         try:
+            # Asegúrate de que este import esté al inicio del archivo
+            # from support_system import create_support_ticket
+            # Si prefieres mantenerlo aquí, está bien, pero asegúrate de que no falle.
             ticket_id = create_support_ticket(
                 query=last_query,
                 response=last_response,
@@ -317,20 +321,40 @@ def request_support():
                 priority="media",
                 reason="Solicitud de soporte humano desde el widget de chat"
             )
-            logger.info(f"✅ Ticket de soporte creado para el usuario {user_id} con ID: {ticket_id}")
-            # --- CAMBIO CLAVE: Devolver el ticket_id al frontend ---
-            return jsonify({
-                "status": "success",
-                "message": f"✅ Ticket de soporte creado. Tu número de folio es: **{ticket_id}**. Un representante se contactará contigo pronto a través de {contact_info}.",
-                "ticket_id": ticket_id
-            })
-
-        except Exception as ticket_error:
-            logger.error(f"❌ Error al crear ticket de soporte para {user_id}: {str(ticket_error)}", exc_info=True)
+        except Exception as creation_error:
+            logger.error(f"❌ Error crítico al ejecutar create_support_ticket para {user_id}: {str(creation_error)}", exc_info=True)
+            # Devolver un error específico al cliente
             return jsonify({
                 "status": "error",
-                "message": "Error al crear tu ticket de soporte. Por favor, inténtalo de nuevo o contacta directamente a soporte@masamadremonterrey.com"
+                "message": "Error interno al crear el ticket de soporte. El equipo ha sido notificado. Por favor, inténtalo de nuevo más tarde o contacta directamente."
             }), 500
+
+        # Verificar que la función haya devuelto un ID válido
+        if ticket_id is None:
+            error_msg = f"❌ create_support_ticket devolvió None para el usuario {user_id}. Revisar implementación."
+            logger.critical(error_msg)
+            return jsonify({
+                "status": "error",
+                "message": "Error al finalizar la creación del ticket. Por favor, inténtalo de nuevo o contacta directamente a soporte@masamadremonterrey.com"
+            }), 500
+
+        logger.info(f"✅ Ticket de soporte creado para el usuario {user_id} con ID: {ticket_id}")
+        # --- FIN CORRECCIÓN CLAVE ---
+
+        # --- CORRECCIÓN SECUNDARIA: Asegurar serialización segura ---
+        # Aunque ticket_id no debería ser None aquí, envolver en str() es defensivo.
+        # El error principal está en la creación/retorno de ticket_id.
+        response_message = (
+            f"✅ Ticket de soporte creado. Tu número de folio es: **{str(ticket_id)}**. "
+            f"Un representante se contactará contigo pronto a través de {contact_info}."
+        )
+        
+        return jsonify({
+            "status": "success",
+            "message": response_message,
+            "ticket_id": str(ticket_id) # Asegurar que sea serializable
+        })
+        # --- FIN CORRECCIÓN SECUNDARIA ---
 
     except Exception as e:
         logger.critical(f"❌ Error crítico no manejado en /api/chat/support: {str(e)}", exc_info=True)
