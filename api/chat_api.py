@@ -146,138 +146,100 @@ def init_chat():
 #     pass
 # --- FIN BLOQUE DE DETECCIÓN DE DIFICULTADES ---
 
+# --- Reemplaza TU función handle_message actual con este bloque ---
 @app.route('/api/chat/message', methods=['POST'])
 def handle_message():
     """Procesa un mensaje del usuario"""
     try:
         # Log detallado de la solicitud
         data = request.json
-        logger.info(f"📩 Mensaje recibido: {json.dumps(data) if data else 'Sin datos'}")
-
-        # Validación de datos de entrada
-        if not data:
-            logger.error("❌ Error: Solicitud sin datos JSON")
-            return jsonify({
-                "status": "error",
-                "message": "Datos JSON requeridos"
-            }), 400
-
+        logger.info(f"📩 Mensaje recibido: {json.dumps(data)}")
         user_id = data.get('user_id')
         message = data.get('message', '').strip()
 
-        # Diagnóstico detallado de validación
+        # Diagnóstico detallado
         if not user_id:
             logger.error("❌ Error: user_id no proporcionado en la solicitud")
             return jsonify({
                 "status": "error",
                 "message": "user_id es requerido"
             }), 400
-
-        # Acceder a la sesión con manejo de errores mejorado
-        # conversation_history = sessions[user_id] # Original - Puede causar KeyError
-        conversation_history = sessions.get(user_id) # Mejora: Usar .get()
-        if not conversation_history:
+        if user_id not in sessions:
             logger.error(f"❌ Error: Sesión no encontrada para user_id: {user_id}")
-            # Para diagnóstico, listar todas las sesiones (con cuidado en producción)
-            logger.debug(f"📊 Sesiones activas (primeras 10): {list(sessions.keys())[:10]}")
+            # Para diagnóstico, listar todas las sesiones
+            logger.info(f"📊 Sesiones activas: {list(sessions.keys())}")
             return jsonify({
                 "status": "error",
-                "message": "Sesión no válida. Por favor, inicia una nueva sesión.",
-                "requires_new_session": True # Indicador para el frontend
+                "message": "Sesión no válida. Por favor, inicia una nueva sesión."
+            }), 400
+        if not message:
+            logger.error("❌ Error: Mensaje vacío recibido")
+            return jsonify({
+                "status": "error",
+                "message": "El mensaje no puede estar vacío"
             }), 400
 
-        if not message:
-            logger.warning("⚠️ Advertencia: Mensaje vacío recibido")
-            # En lugar de error, podríamos devolver una respuesta amigable
-            return jsonify({
-                "status": "success", # Mantener status success para fluidez
-                "response": "Parece que enviaste un mensaje vacío. ¿En qué puedo ayudarte?",
-                "sources": [],
-                "user_id": user_id
-            })
+        # Obtener historial de conversación
+        conversation_history = sessions[user_id]
 
-        # --- GENERACIÓN DE RESPUESTA CON MANEJO DE ERRORES ---
+        # --- BLOQUE CRÍTICO MODIFICADO PARA MANEJO DE ERRORES ---
         chatbot_response = None
         try:
-            logger.info(f"🤖 Generando respuesta para user_id: {user_id}, mensaje: '{message[:50]}...'")
+            # Intentar generar la respuesta
             chatbot_response = generate_chatbot_response(
                 query=message,
                 user_id=user_id,
                 conversation_history=conversation_history
             )
-            logger.info(f"✅ Respuesta generada exitosamente para {user_id}")
         except Exception as generation_error:
-            logger.error(f"❌ Error crítico en generate_chatbot_response para {user_id}: {str(generation_error)}", exc_info=True)
-            # --- DEGRADACIÓN ELEGANTE ---
-            # En lugar de romper todo, devolvemos una respuesta de error estructurada
-            # que el frontend puede manejar específicamente.
+            # --- CAPTURA Y MANEJO DEL ERROR EOF y otros ---
+            logger.error(f"❌ Error CRÍTICO en generate_chatbot_response para {user_id}: {str(generation_error)}", exc_info=True)
+            # Devolver una respuesta de error estructurada pero sin romper el flujo de la API
+            # Esto permite que el frontend reciba un mensaje y pueda, por ejemplo, sugerir escribir "soporte"
             return jsonify({
-                "status": "success", # Mantener "success" para que el frontend lo procese como mensaje normal
+                "status": "success", # Importante: mantener "success" para que el frontend lo trate como un mensaje normal
                 "response": (
-                    "Lo siento, estoy teniendo dificultades técnicas temporales para procesar tu consulta. "
-                    "Por favor, inténtalo de nuevo en un momento. "
+                    "Ups, parece que tuve un pequeño problema interno al formular mi respuesta en este momento. "
+                    "¿Podrías repetir tu pregunta o intentar con otra? "
                     "Si el problema persiste, puedes escribir 'soporte' para contactar con un agente humano."
                 ),
                 "sources": [],
                 "user_id": user_id,
-                "error_flag": True, # Bandera para que el frontend sepa que fue un error interno
-                "error_type": "generation_error"
+                "internal_error": True # Bandera opcional
             })
+        # --- FIN BLOQUE CRÍTICO MODIFICADO ---
 
-        # --- PREPARACIÓN DE LA RESPUESTA ---
-        # Validar la estructura de la respuesta de generate_chatbot_response
-        if not isinstance(chatbot_response, dict):
-            logger.error(f"❌ generate_chatbot_response devolvió un tipo inesperado: {type(chatbot_response)}")
+        # Si no hubo error interno, preparar la respuesta normal
+        if chatbot_response:
+            # Preparar respuesta para el frontend
+            response_data = {
+                "status": "success",
+                "response": chatbot_response['response'],
+                "sources": chatbot_response['sources'],
+                "user_id": user_id
+            }
+            logger.info(f"✅ Mensaje procesado para el usuario {user_id}")
+            return jsonify(response_data)
+        else:
+            # Caso improbable si generate_chatbot_response no lanza excepción pero devuelve None
+            logger.error(f"❌ generate_chatbot_response devolvió None para {user_id}")
             return jsonify({
                 "status": "success",
-                "response": (
-                    "Ups, parece que tuve un pequeño problema interno al formular mi respuesta. "
-                    "¿Podrías repetir tu pregunta? Estoy aquí para ayudarte."
-                ),
+                "response": "Lo siento, no pude generar una respuesta. Por favor, inténtalo de nuevo.",
                 "sources": [],
-                "user_id": user_id,
-                "error_flag": True,
-                "error_type": "response_format_error"
+                "user_id": user_id
             })
 
-        # Extraer componentes con valores por defecto
-        response_text = chatbot_response.get('response', 'Lo siento, no tengo una respuesta para esa consulta.')
-        sources_list = chatbot_response.get('sources', [])
-
-        # Validar tipos
-        if not isinstance(response_text, str):
-            logger.warning(f"⚠️ 'response' no es string, es {type(response_text)}. Convirtiendo.")
-            response_text = str(response_text)
-        if not isinstance(sources_list, list):
-            logger.warning(f"⚠️ 'sources' no es lista, es {type(sources_list)}. Convirtiendo.")
-            sources_list = list(sources_list) if hasattr(sources_list, '__iter__') else []
-
-        # Preparar respuesta para el frontend
-        response_data = {
-            "status": "success",
-            "response": response_text,
-            "sources": sources_list,
-            "user_id": user_id
-        }
-
-        logger.info(f"📤 Mensaje procesado y respuesta enviada para el usuario {user_id}")
-        return jsonify(response_data)
-
-    except Exception as generation_error: # <-- Este bloque es clave
-        logger.error(f"❌ Error crítico en generate_chatbot_response para {user_id}: {str(generation_error)}", exc_info=True)
-        # Devolver una respuesta de error estructurada pero sin romper el flujo
+    except Exception as e:
+        # Error general no relacionado con la generación de respuesta
+        logger.error(f"❌ Error general al procesar mensaje para {user_id}: {str(e)}", exc_info=True)
         return jsonify({
-        "status": "success", # Mantener "success" para que el frontend lo procese como mensaje normal
-        "response": (
-            "Ups, parece que tuve un pequeño problema interno al formular mi respuesta. "
-            "¿Podrías repetir tu pregunta o intentar con otra? Estoy aquí para ayudarte."
-            # Opcionalmente, puedes sugerir "soporte" aquí si el error es recurrente.
-        ),
-        "sources": [],
-        "user_id": user_id,
-        "error_flag": True, # Bandera opcional para el frontend
-        "error_type": "generation_error"
-    })
+            "status": "error",
+            "message": "Error interno del servidor al procesar tu mensaje"
+        }), 500
+# --- Fin del nuevo handle_message ---
+
+
 
 @app.route('/api/chat/feedback', methods=['POST'])
 def handle_feedback():
