@@ -297,7 +297,7 @@ def request_support():
 
         if not full_history:
              logger.warning(f"⚠️ Solicitud de soporte: Historial vacío para {user_id}")
-            full_history = []
+             full_history = []
 
         # Preparar datos para el ticket
         last_query = ""
