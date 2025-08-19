@@ -4,12 +4,11 @@ Sistema de Búsqueda Semántica para Masa Madre Monterrey
 - Integración con Claude para generación de respuestas
 - Historial de conversación para contexto continuo
 """
-# --- INICIO DE CAMBIOS: Eliminadas importaciones no esenciales para esta función pura ---
+# --- Eliminadas importaciones no esenciales para esta función pura ---
 # Se eliminan imports relacionados con retroalimentación automática y soporte humano
 # que se manejarán en otros niveles (API o frontend).
-# --- FIN DE CAMBIOS ---
+# ---
 
-import re
 import os
 import json
 import logging
@@ -36,6 +35,10 @@ logger = logging.getLogger(__name__)
 
 # Cargar variables de entorno
 load_dotenv()
+
+# --- Constantes para el filtrado ---
+# Umbral de score de Pinecone para considerar un documento relevante para sugerencias
+PRODUCT_RELEVANCE_THRESHOLD = 0.80 # Ajustar según pruebas
 
 def get_pinecone_index():
     """Obtiene el índice de Pinecone para búsqueda semántica"""
@@ -66,40 +69,45 @@ def get_pinecone_index():
 def create_claude_qa_chain(conversation_history=None):
     """Crea una cadena de preguntas y respuestas usando Claude"""
     # Configurar template de prompt
-    template = """Eres Pancho, un asistente virtual amigable, experto y entusiasta de la panadería artesanal con masa madre para Masa Madre Monterrey. Tu objetivo es ser útil, claro y directo.
+    template = """Eres un asistente virtual amigable, experto y entusiasta de la panadería artesanal con masa madre para Masa Madre Monterrey, una panadería artesanal de venta exlusiva en línea. Tu objetivo es ser útil, claro y directo.
 
 **Instrucciones de Comportamiento:**
 
 1.  **Personalidad y Tono:** Sé amable, profesional y entusiasta sobre la panadería. Usa emojis de forma moderada (😊, 🍞, 🙏). Evita ser excesivamente formal o promocional.
 2.  **Claridad y Concisión:** Prioriza respuestas claras y directas. Evita bloques de texto muy largos. Usa viñetas o párrafos cortos cuando sea apropiado.
-3.  **Uso de Información Recuperada ({context}):**
-    *   Utiliza la información proporcionada en `{context}` para responder con precisión.
-    *   Si la información en `{context}` no es relevante para la `{question}`, ignórala.
+3.  **Uso de Información Recuperada:**
+    *   Utiliza la información proporcionada en `Contexto de Productos` para responder con precisión sobre productos.
+    *   Si la información en `Contexto de Productos` no es relevante para la pregunta, ignórala.
     *   Si no tienes información suficiente, admite honestamente que no la tienes o que verificarás.
-4.  **Sugerencias de Productos/Servicios ({context}):**
-    *   **Primera Interacción:** En la primera respuesta del día o sesión, puedes mencionar brevemente 1-2 productos o servicios destacados si es relevante o como ejemplo de lo que puedes ayudar.
-    *   **Preguntas Explícitas:** Solo muestra sugerencias de productos/servicios cuando el usuario pregunte específicamente por ellos o cuando tu respuesta implique mencionar un producto/servicio específico del `{context}`.
-    *   **Interacciones Posteriores:** En respuestas generales o de seguimiento, **no** agregues automáticamente una lista de sugerencias de productos/servicios. El enfoque debe estar en la pregunta del usuario.
-5.  **Historial de Conversación ({conversation_context}):**
-    *   Usa el `{conversation_context}` para mantener la coherencia y recordar puntos discutidos.
+4.  **Sugerencias de Productos/Servicios:**
+    *   **No** agregues automáticamente una lista de sugerencias de productos/servicios al final de cada respuesta.
+    *   Solo menciona productos/servicios cuando la pregunta del usuario sea explícitamente sobre ellos o cuando tu respuesta naturalmente implique mencionar un producto/servicio específico.
+5.  **Historial de Conversación:
+    *   Usa el `Historial de Conversación` para mantener la coherencia y recordar puntos discutidos.
     *   No repitas información ya dada a menos que sea necesario para aclarar.
 6.  **Derivación a Soporte Humano:**
     *   Reconoce solicitudes explícitas de hablar con un humano (ej: "quiero hablar con alguien", "agente", "humano", "representante", "soporte").
     *   **No** ofrezcas alternativas indirectas (redes sociales, WhatsApp). En su lugar, indica que puedes ayudar a conectarlo.
-    *   **Acción:** Si detectas una solicitud de humano, responde con algo como: "Entiendo que prefieres hablar con alguien directamente. Estoy listo para ayudarte con eso. Por favor, ¿podrías dejarme tu correo electrónico o número de teléfono para que un representante se pueda poner en contacto contigo?" Luego, espera la información de contacto. (Este flujo requiere integración con el endpoint `/api/chat/support` del backend).
+    *   **Acción:** Si detectas una solicitud de humano, responde con algo como: "Entiendo que prefieres hablar con alguien directamente. Estoy listo para ayudarte con eso. Por favor, ¿podrías dejarme tu correo electrónico o número de teléfono para que un representante se pueda poner en contacto contigo?" Luego, espera la información de contacto.
 7.  **Ofertas y Promociones:**
     *   Solo menciona ofertas si son relevantes para la consulta o si se pregunta por productos en promoción.
 8.  **Formato de Respuesta:**
     *   **Respuesta Principal:** El texto principal de tu respuesta.
-    *   **(Opcional) Fuentes Relevantes:** Si mencionaste un producto o página específica del `{context}`, puedes incluir un enlace. Ejemplo:
+    *   **(Opcional) Fuentes Relevantes:** Si mencionaste un producto o página específica del contexto, puedes incluir un enlace. Ejemplo:
         ```
         Puedes encontrar más detalles aquí: [Nombre del Producto](URL_del_producto)
         ```
-    *   **No** agregues una sección fija de "Productos relacionados" a menos que sea una solicitud explícita.
+    *   **No** agregues una sección fija de "Productos relacionados".
 
-**Consulta del cliente:** {question}
+**Contexto de Productos:**
+{context}
 
-Respuesta:"""
+**Historial de Conversación:**
+{conversation_context}
+
+**Pregunta del cliente:** {question}
+
+**Respuesta:**"""
     
     QA_CHAIN_PROMPT = PromptTemplate.from_template(template)
     
@@ -126,7 +134,10 @@ Respuesta:"""
     index, embeddings = get_pinecone_index()
     
     def similarity_search(query, k=3):
-        """Realiza búsqueda semántica y formatea los resultados"""
+        """
+        Realiza búsqueda semántica y devuelve resultados crudos con score.
+        Esta función se enfoca únicamente en la recuperación.
+        """
         # Generar embedding de la consulta
         query_embedding = embeddings.embed_query(query)
         
@@ -137,10 +148,21 @@ Respuesta:"""
             include_metadata=True
         )
         
-        # Formatear resultados
-        documents = []
-        for match in results['matches']:
-            # Decodificar sale_info si existe
+        # Devolver resultados crudos (incluyendo score)
+        # No se formatean aquí, eso se hace más adelante según el propósito.
+        return results['matches']
+    
+    # Crear cadena de QA personalizada
+    def qa_chain(query):
+        # Recuperar documentos relevantes (crudos, con score)
+        raw_docs = similarity_search(query, k=3)
+        
+        # Formatear contexto para Claude (puede usar todos o un subconjunto)
+        # Para el contexto, podemos ser un poco más permisivos con el score
+        # o simplemente usar los top-k. Claude puede filtrar por relevancia contextual.
+        context_parts = []
+        for match in raw_docs:
+             # Decodificar sale_info si existe
             sale_info = []
             if match['metadata'].get('sale_info'):
                 try:
@@ -148,8 +170,9 @@ Respuesta:"""
                 except:
                     pass
             
-            # Construir contenido alternativo
-            content = f"Título: {match['metadata']['title']}\n"
+            # Construir contenido para el contexto de Claude
+            content = f"ID: {match['id']}\n"
+            content += f"Título: {match['metadata']['title']}\n"
             content += f"Categoría: {match['metadata']['category']}\n"
             content += f"Precio: {match['metadata']['price_range']}\n"
             content += f"Disponibilidad: {match['metadata']['availability']}\n"
@@ -158,33 +181,14 @@ Respuesta:"""
             # Formatear información de oferta
             sale_text = ""
             if match['metadata'].get('has_active_sale') == 'True' and sale_info:
-                sale_text = "\n🔔 OFERTA VIGENTE: "
+                sale_text = "\nOfertas Vigentes: "
                 for i, sale in enumerate(sale_info[:2], 1):
-                    sale_text += f"\n{i}. {sale['variant_title']}: De ${sale['original_price']:.2f} a ${sale['current_price']:.2f} MXN ({sale['discount_percent']}% OFF)"
+                    sale_text += f"\n- {sale['variant_title']}: De ${sale['original_price']:.2f} a ${sale['current_price']:.2f} MXN ({sale['discount_percent']}% OFF)"
             
-            # Crear documento con el contenido alternativo
-            doc = {
-                'page_content': content + sale_text,
-                'metadata': {
-                    'title': match['metadata']['title'],
-                    'url': match['metadata']['source_url'],
-                    'price_range': match['metadata']['price_range'],
-                    'availability': match['metadata']['availability'],
-                    'category': match['metadata']['category']
-                }
-            }
-            documents.append(doc)
+            context_parts.append(content + sale_text)
             
-        return documents
-    
-    # Crear cadena de QA personalizada
-    def qa_chain(query):
-        # Recuperar documentos relevantes
-        docs = similarity_search(query, k=3)
-        
-        # Formatear contexto
-        context = "\n".join([doc['page_content'] for doc in docs])
-        
+        context = "\n---\n".join(context_parts) if context_parts else "No se encontró información de productos específica."
+
         # Añadir historial de conversación si existe
         conversation_context = ""
         if conversation_history:
@@ -204,93 +208,105 @@ Respuesta:"""
         # Esta acción sigue siendo parte de la generación de la respuesta, ya que el historial
         # debe actualizarse con cada interacción.
         if conversation_history:
-            conversation_history.add_exchange(query, response, docs)
+            # Pasamos los raw_docs para que el historial pueda usarlos si es necesario
+            # o para futuras mejoras de tracking.
+            conversation_history.add_exchange(query, response, raw_docs) 
             
+        # Devolver la respuesta y los documentos crudos para procesamiento posterior
         return {
             "result": response,
-            "source_documents": docs
+            "raw_source_documents": raw_docs # Devolver docs crudos con score
         }
         
     return qa_chain
 
 # --- CAMBIO PRINCIPAL: generate_chatbot_response refactorizada ---
-# --- DENTRO DE LA FUNCIÓN generate_chatbot_response ---
-
 def generate_chatbot_response(query, user_id=None, conversation_history=None):
     """
     Genera una respuesta para el chatbot usando búsqueda semántica con Claude.
     Esta función se enfoca únicamente en generar la respuesta basada en la consulta.
+    La interacción con el usuario (feedback, soporte) se maneja en otros niveles.
+
+    Args:
+        query (str): Consulta del usuario.
+        user_id (str): ID único del usuario (opcional, para registro de errores).
+        conversation_history (ConversationHistory): Historial existente (opcional).
+
+    Returns:
+        dict: Diccionario con 'response' (str), 'sources' (list[dict]) y 'provider' (str).
+
+    Raises:
+        Exception: Si ocurre un error durante la generación de la respuesta.
     """
     try:
-        # --- EXISTING CODE FOR GENERATION ---
-        # Este bloque es tu código existente para interactuar con Claude
-        # y generar la respuesta y las fuentes.
+        # Usar siempre Claude
         logger.info("✅ Usando Claude para generar respuesta")
-        
+        # No imprimir en consola, ya que no es un entorno interactivo
+        # print("✅ Usando Claude para generar respuesta") # Eliminado
+
         qa_chain = create_claude_qa_chain(conversation_history=conversation_history)
+        
+        # Generar respuesta y obtener documentos crudos
         result = qa_chain(query)
         
+        # Extraer información relevante
         response = result['result']
-        raw_sources = []
-        for doc in result['source_documents']:
-            metadata = doc['metadata']
-            raw_sources.append({
-                'title': metadata.get('title', 'Producto sin título'),
-                'url': metadata.get('url', ''),
-                'price': metadata.get('price_range', 'Consultar'),
-                'availability': metadata.get('availability', 'No disponible'),
-                'category': metadata.get('category', 'otro')
-            })
-        # --- FIN EXISTING CODE ---
-
-        # --- NUEVA LÓGICA: Análisis de Intención ---
-        query_lower = query.lower().strip()
-
-        # Definir patrones para intenciones específicas
-        support_keywords = [
-            r"\bhumano\b", r"\bagente\b", r"\brepresentante\b", r"\bpersona\b", 
-            r"\bsoporte\b", r"\bhablar con alguien\b", r"\bquiero hablar\b",
-            r"\bcontactar\b", r"\bconectar\b"
-        ]
-        product_keywords = [
-            r"\btienen\b", r"\bdisponible\b", r"\bprecio\b", r"\bcosto\b", 
-            r"\bcu[áa]nto\b", r"\bproducto\b", r"\bpan\b", r"\bherramienta\b", 
-            r"\bcesta\b", r"\bb[áa]scula\b", r"\bkit\b", r"\boferta\b", 
-            r"\bpromoci[óo]n\b", r"\bdescuento\b"
-        ]
+        raw_docs = result['raw_source_documents']
         
-        # Etiquetar la intención
-        intent = "general" # Valor por defecto
-
-        # Verificar intención de soporte (prioridad alta)
-        if any(re.search(keyword, query_lower) for keyword in support_keywords):
-            intent = "support_requested"
-        # Verificar si la consulta parece buscar un producto específico
-        elif any(re.search(keyword, query_lower) for keyword in product_keywords):
-            intent = "product_inquiry"
-        # Se pueden añadir más intenciones aquí si se identifican patrones comunes
-
-        # --- LÓGICA PARA SELECCIÓN DE FUENTES ---
-        # Basado en la intención, decidir qué fuentes devolver
-        # Inicialmente, pasamos todas las fuentes recuperadas. El filtrado final
-        # lo hace chat_api.py basándose en la intención.
-        # Esta función se enfoca en la generación y etiquetado.
-        filtered_sources = raw_sources # Pasar todas, el backend filtra según intención
-
-        # --- PREPARAR LA RESPUESTA FINAL ---
+        # --- CAMBIO CLAVE: Filtrado de fuentes basado en score ---
+        # Procesar los documentos crudos para crear sources filtradas
+        filtered_sources = []
+        for match in raw_docs:
+            # Verificar si el score supera el umbral de relevancia
+            if match.get('score', 0) >= PRODUCT_RELEVANCE_THRESHOLD:
+                # Decodificar sale_info si existe
+                sale_info = []
+                if match['metadata'].get('sale_info'):
+                    try:
+                        sale_info = json.loads(match['metadata']['sale_info'])
+                    except:
+                        pass
+                        
+                # Crear el diccionario de source filtrado
+                source = {
+                    'title': match['metadata'].get('title', 'Producto sin título'),
+                    'url': match['metadata'].get('source_url', ''),
+                    'price': match['metadata'].get('price_range', 'Consultar'),
+                    'availability': match['metadata'].get('availability', 'No disponible'),
+                    'category': match['metadata'].get('category', 'otro'),
+                    'score': match.get('score', 0) # Opcional: para debugging
+                }
+                filtered_sources.append(source)
+            else:
+                logger.debug(f"Documento filtrado por score bajo ({match.get('score', 0):.3f}): {match['metadata'].get('title', 'Sin título')}")
+        
+        logger.info(f"🔍 Productos encontrados: {len(raw_docs)}, Sugerencias filtradas (score>{PRODUCT_RELEVANCE_THRESHOLD}): {len(filtered_sources)}")
+        # --- FIN CAMBIO CLAVE ---
+        
+        # --- CAMBIO: Eliminadas todas las interacciones con el usuario ---
+        # Se eliminan los print, input, y lógica de feedback/soporte automático.
+        # Esta función ya no muestra respuestas, fuentes ni solicita feedback.
+        # Esa lógica se mueve a la capa de la API (chat_api.py) o al frontend.
+        # ---
+        
+        # Devolver los datos estructurados
         return {
             'response': response,
-            'sources': filtered_sources,
-            'provider': "claude",
-            'detected_intent': intent # Incluir la intención detectada
+            'sources': filtered_sources, # Devolver las fuentes filtradas por score
+            'provider': "claude"
+            # conversation_history ya no se devuelve, se actualiza internamente
         }
         
     except Exception as e:
         error_msg = f"❌ Error interno al generar respuesta: {str(e)}"
         logger.error(error_msg)
+        # No imprimir errores en consola
+        # print(error_msg) # Eliminado
         
         # Registrar el error en el sistema de retroalimentación para diagnóstico
+        # Esto es útil para el equipo de desarrollo, no para el usuario.
         try:
+            # Importación local para evitar dependencias circulares si no se usan
             from feedback_system import record_feedback
             error_response_for_logging = (
                 "Error interno del sistema al procesar la consulta. "
@@ -300,7 +316,7 @@ def generate_chatbot_response(query, user_id=None, conversation_history=None):
                 query=query,
                 response=error_response_for_logging,
                 provider="claude",
-                rating=1,
+                rating=1, # Calificación automática baja para errores
                 user_comment=f"Error técnico interno: {str(e)}",
                 session_id=user_id
             )
@@ -309,8 +325,6 @@ def generate_chatbot_response(query, user_id=None, conversation_history=None):
             
         # Relanzar la excepción para que la API la maneje
         raise Exception("Lo siento, estoy teniendo problemas para procesar tu consulta. Por favor, inténtalo de nuevo más tarde.") from e
-
-# --- FIN DE LA FUNCIÓN generate_chatbot_response ---
 
 # --- FUNCIONES AUXILIARES (NUEVAS O REFACTORIZADAS) ---
 # Estas funciones se pueden usar desde chat_api.py para lógica adicional si se requiere
@@ -357,8 +371,6 @@ def detect_user_difficulties(query, response, conversation_history):
         'detected': detected,
         'reason': reason
     }
-
-# --- FUNCIONES MANTENIDAS (con posibles ajustes menores) ---
 
 def search_products(query, top_k=3):
     """Busca productos relevantes usando Mistral y Pinecone"""
@@ -420,9 +432,4 @@ if __name__ == "__main__":
     # Bloque de prueba simplificado sin interacción
     print("Este módulo está diseñado para ser usado por la API.")
     print("Para pruebas, importa y llama a `generate_chatbot_response` directamente.")
-    # Ejemplo de cómo podría usarse para pruebas (requiere mocks):
-    # from conversation_history import ConversationHistory
-    # history = ConversationHistory(user_id="test")
-    # response = generate_chatbot_response("¿Tienen pan de calabaza?", "test_user", history)
-    # print(response)
 
