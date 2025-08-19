@@ -16,10 +16,8 @@ from dotenv import load_dotenv
 from pinecone import Pinecone
 from anthropic import Anthropic
 from langchain.prompts import PromptTemplate
-# conversation_history se sigue usando para contexto
-# from conversation_history import ConversationHistory 
-# feedback_system se sigue usando para registrar errores internos
-# from feedback_system import record_feedback 
+from conversation_history import ConversationHistory 
+from feedback_system import record_feedback 
 from mistralai import Mistral
 
 # Configurar logging
