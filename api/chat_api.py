@@ -264,9 +264,9 @@ def handle_message():
         return jsonify(response_data)
 
     except Exception as generation_error: # <-- Este bloque es clave
-    logger.error(f"❌ Error crítico en generate_chatbot_response para {user_id}: {str(generation_error)}", exc_info=True)
-    # Devolver una respuesta de error estructurada pero sin romper el flujo
-    return jsonify({
+        logger.error(f"❌ Error crítico en generate_chatbot_response para {user_id}: {str(generation_error)}", exc_info=True)
+        # Devolver una respuesta de error estructurada pero sin romper el flujo
+        return jsonify({
         "status": "success", # Mantener "success" para que el frontend lo procese como mensaje normal
         "response": (
             "Ups, parece que tuve un pequeño problema interno al formular mi respuesta. "
