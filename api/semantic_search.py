@@ -9,6 +9,7 @@ Sistema de Búsqueda Semántica para Masa Madre Monterrey
 # que se manejarán en otros niveles (API o frontend).
 # --- FIN DE CAMBIOS ---
 
+import re
 import os
 import json
 import logging
@@ -213,71 +214,83 @@ Respuesta:"""
     return qa_chain
 
 # --- CAMBIO PRINCIPAL: generate_chatbot_response refactorizada ---
+# --- DENTRO DE LA FUNCIÓN generate_chatbot_response ---
+
 def generate_chatbot_response(query, user_id=None, conversation_history=None):
     """
     Genera una respuesta para el chatbot usando búsqueda semántica con Claude.
     Esta función se enfoca únicamente en generar la respuesta basada en la consulta.
-    La interacción con el usuario (feedback, soporte) se maneja en otros niveles.
-
-    Args:
-        query (str): Consulta del usuario.
-        user_id (str): ID único del usuario (opcional, para registro de errores).
-        conversation_history (ConversationHistory): Historial existente (opcional).
-
-    Returns:
-        dict: Diccionario con 'response' (str), 'sources' (list[dict]) y 'provider' (str).
-
-    Raises:
-        Exception: Si ocurre un error durante la generación de la respuesta.
     """
     try:
-        # Usar siempre Claude
+        # --- EXISTING CODE FOR GENERATION ---
+        # Este bloque es tu código existente para interactuar con Claude
+        # y generar la respuesta y las fuentes.
         logger.info("✅ Usando Claude para generar respuesta")
-        # No imprimir en consola, ya que no es un entorno interactivo
-        # print("✅ Usando Claude para generar respuesta") # Eliminado
-
-        qa_chain = create_claude_qa_chain(conversation_history=conversation_history)
         
-        # Generar respuesta
+        qa_chain = create_claude_qa_chain(conversation_history=conversation_history)
         result = qa_chain(query)
         
-        # Extraer información relevante
         response = result['result']
-        sources = []
+        raw_sources = []
         for doc in result['source_documents']:
             metadata = doc['metadata']
-            sources.append({
+            raw_sources.append({
                 'title': metadata.get('title', 'Producto sin título'),
                 'url': metadata.get('url', ''),
                 'price': metadata.get('price_range', 'Consultar'),
                 'availability': metadata.get('availability', 'No disponible'),
                 'category': metadata.get('category', 'otro')
             })
+        # --- FIN EXISTING CODE ---
+
+        # --- NUEVA LÓGICA: Análisis de Intención ---
+        query_lower = query.lower().strip()
+
+        # Definir patrones para intenciones específicas
+        support_keywords = [
+            r"\bhumano\b", r"\bagente\b", r"\brepresentante\b", r"\bpersona\b", 
+            r"\bsoporte\b", r"\bhablar con alguien\b", r"\bquiero hablar\b",
+            r"\bcontactar\b", r"\bconectar\b"
+        ]
+        product_keywords = [
+            r"\btienen\b", r"\bdisponible\b", r"\bprecio\b", r"\bcosto\b", 
+            r"\bcu[áa]nto\b", r"\bproducto\b", r"\bpan\b", r"\bherramienta\b", 
+            r"\bcesta\b", r"\bb[áa]scula\b", r"\bkit\b", r"\boferta\b", 
+            r"\bpromoci[óo]n\b", r"\bdescuento\b"
+        ]
         
-        # --- CAMBIO: Eliminadas todas las interacciones con el usuario ---
-        # Se eliminan los print, input, y lógica de feedback/soporte automático.
-        # Esta función ya no muestra respuestas, fuentes ni solicita feedback.
-        # Esa lógica se mueve a la capa de la API (chat_api.py) o al frontend.
-        # ---
-        
-        # Devolver los datos estructurados
+        # Etiquetar la intención
+        intent = "general" # Valor por defecto
+
+        # Verificar intención de soporte (prioridad alta)
+        if any(re.search(keyword, query_lower) for keyword in support_keywords):
+            intent = "support_requested"
+        # Verificar si la consulta parece buscar un producto específico
+        elif any(re.search(keyword, query_lower) for keyword in product_keywords):
+            intent = "product_inquiry"
+        # Se pueden añadir más intenciones aquí si se identifican patrones comunes
+
+        # --- LÓGICA PARA SELECCIÓN DE FUENTES ---
+        # Basado en la intención, decidir qué fuentes devolver
+        # Inicialmente, pasamos todas las fuentes recuperadas. El filtrado final
+        # lo hace chat_api.py basándose en la intención.
+        # Esta función se enfoca en la generación y etiquetado.
+        filtered_sources = raw_sources # Pasar todas, el backend filtra según intención
+
+        # --- PREPARAR LA RESPUESTA FINAL ---
         return {
             'response': response,
-            'sources': sources,
-            'provider': "claude"
-            # conversation_history ya no se devuelve, se actualiza internamente
+            'sources': filtered_sources,
+            'provider': "claude",
+            'detected_intent': intent # Incluir la intención detectada
         }
         
     except Exception as e:
         error_msg = f"❌ Error interno al generar respuesta: {str(e)}"
         logger.error(error_msg)
-        # No imprimir errores en consola
-        # print(error_msg) # Eliminado
         
         # Registrar el error en el sistema de retroalimentación para diagnóstico
-        # Esto es útil para el equipo de desarrollo, no para el usuario.
         try:
-            # Importación local para evitar dependencias circulares si no se usan
             from feedback_system import record_feedback
             error_response_for_logging = (
                 "Error interno del sistema al procesar la consulta. "
@@ -287,7 +300,7 @@ def generate_chatbot_response(query, user_id=None, conversation_history=None):
                 query=query,
                 response=error_response_for_logging,
                 provider="claude",
-                rating=1, # Calificación automática baja para errores
+                rating=1,
                 user_comment=f"Error técnico interno: {str(e)}",
                 session_id=user_id
             )
@@ -296,6 +309,8 @@ def generate_chatbot_response(query, user_id=None, conversation_history=None):
             
         # Relanzar la excepción para que la API la maneje
         raise Exception("Lo siento, estoy teniendo problemas para procesar tu consulta. Por favor, inténtalo de nuevo más tarde.") from e
+
+# --- FIN DE LA FUNCIÓN generate_chatbot_response ---
 
 # --- FUNCIONES AUXILIARES (NUEVAS O REFACTORIZADAS) ---
 # Estas funciones se pueden usar desde chat_api.py para lógica adicional si se requiere

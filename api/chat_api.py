@@ -9,6 +9,7 @@ import os
 sys.path.append(os.path.join(os.path.dirname(__file__), '../lib'))
 import json
 import logging
+from support_system import create_support_ticket
 from datetime import datetime
 from flask import Flask, request, jsonify, make_response
 from dotenv import load_dotenv
@@ -132,113 +133,211 @@ def init_chat():
             "message": "Error interno del servidor al iniciar la sesión de chat"
         }), 500
 
-# --- BLOQUE DE LÓGICA DE DETECCIÓN DE DIFICULTADES (SEPARADO) ---
-# Esta sección contiene la lógica que antes causaba problemas al detectar dificultades.
-# Se ha comentado o reestructurado para evitar que interfiera con el flujo normal.
-# Si se desea mantener esta funcionalidad, se debe implementar de forma más robusta
-# y no como parte del flujo principal de manejo de mensajes.
-#
-# Ejemplo de cómo podría verse esta lógica separada (conceptual):
-# def detectar_dificultades_usuario(user_id, conversation_history):
-#     # Lógica para analizar el historial y detectar patrones de dificultad
-#     # Esta función NO debería interrumpir el flujo normal de mensajes
-#     # sino que podría registrar métricas o activar alertas internas.
-#     pass
-# --- FIN BLOQUE DE DETECCIÓN DE DIFICULTADES ---
-
 # --- Reemplaza TU función handle_message actual con este bloque ---
+# from support_system import create_support_ticket # Ya debería estar
+
 @app.route('/api/chat/message', methods=['POST'])
 def handle_message():
     """Procesa un mensaje del usuario"""
     try:
-        # Log detallado de la solicitud
         data = request.json
-        logger.info(f"📩 Mensaje recibido: {json.dumps(data)}")
+        logger.info(f"📩 Mensaje recibido: {json.dumps(data) if data else 'Sin datos'}")
+
+        # Validación de datos de entrada
+        if not data:
+            logger.error("❌ Error: Solicitud sin datos JSON")
+            return jsonify({
+                "status": "error",
+                "message": "Datos JSON requeridos"
+            }), 400
+
         user_id = data.get('user_id')
         message = data.get('message', '').strip()
 
-        # Diagnóstico detallado
+        # Diagnóstico detallado de validación
         if not user_id:
             logger.error("❌ Error: user_id no proporcionado en la solicitud")
             return jsonify({
                 "status": "error",
                 "message": "user_id es requerido"
             }), 400
-        if user_id not in sessions:
+
+        # Acceder a la sesión con manejo de errores mejorado
+        conversation_history = sessions.get(user_id)
+        if not conversation_history:
             logger.error(f"❌ Error: Sesión no encontrada para user_id: {user_id}")
-            # Para diagnóstico, listar todas las sesiones
-            logger.info(f"📊 Sesiones activas: {list(sessions.keys())}")
+            logger.debug(f"📊 Sesiones activas (primeras 10): {list(sessions.keys())[:10]}")
             return jsonify({
                 "status": "error",
-                "message": "Sesión no válida. Por favor, inicia una nueva sesión."
+                "message": "Sesión no válida. Por favor, inicia una nueva sesión.",
+                "requires_new_session": True
             }), 400
+
         if not message:
-            logger.error("❌ Error: Mensaje vacío recibido")
+            logger.warning("⚠️ Advertencia: Mensaje vacío recibido")
             return jsonify({
-                "status": "error",
-                "message": "El mensaje no puede estar vacío"
-            }), 400
+                "status": "success",
+                "response": "Parece que enviaste un mensaje vacío. ¿En qué puedo ayudarte?",
+                "sources": [],
+                "user_id": user_id
+            })
 
-        # Obtener historial de conversación
-        conversation_history = sessions[user_id]
-
-        # --- BLOQUE CRÍTICO MODIFICADO PARA MANEJO DE ERRORES ---
+        # --- GENERACIÓN DE RESPUESTA CON MANEJO DE ERRORES ---
         chatbot_response = None
         try:
-            # Intentar generar la respuesta
+            logger.info(f"🤖 Generando respuesta para user_id: {user_id}, mensaje: '{message[:50]}...'")
+            # --- CAMBIO CLAVE: Pasar la query original para análisis de intención ---
             chatbot_response = generate_chatbot_response(
-                query=message,
+                query=message, # Pasar la query original
                 user_id=user_id,
                 conversation_history=conversation_history
             )
+            logger.info(f"✅ Respuesta generada exitosamente para {user_id}")
         except Exception as generation_error:
-            # --- CAPTURA Y MANEJO DEL ERROR EOF y otros ---
-            logger.error(f"❌ Error CRÍTICO en generate_chatbot_response para {user_id}: {str(generation_error)}", exc_info=True)
-            # Devolver una respuesta de error estructurada pero sin romper el flujo de la API
-            # Esto permite que el frontend reciba un mensaje y pueda, por ejemplo, sugerir escribir "soporte"
+            logger.error(f"❌ Error crítico en generate_chatbot_response para {user_id}: {str(generation_error)}", exc_info=True)
             return jsonify({
-                "status": "success", # Importante: mantener "success" para que el frontend lo trate como un mensaje normal
+                "status": "success",
                 "response": (
-                    "Ups, parece que tuve un pequeño problema interno al formular mi respuesta en este momento. "
-                    "¿Podrías repetir tu pregunta o intentar con otra? "
+                    "Lo siento, estoy teniendo dificultades técnicas temporales para procesar tu consulta. "
+                    "Por favor, inténtalo de nuevo en un momento. "
                     "Si el problema persiste, puedes escribir 'soporte' para contactar con un agente humano."
                 ),
                 "sources": [],
                 "user_id": user_id,
-                "internal_error": True # Bandera opcional
+                "error_flag": True,
             })
-        # --- FIN BLOQUE CRÍTICO MODIFICADO ---
 
-        # Si no hubo error interno, preparar la respuesta normal
-        if chatbot_response:
-            # Preparar respuesta para el frontend
-            response_data = {
-                "status": "success",
-                "response": chatbot_response['response'],
-                "sources": chatbot_response['sources'],
-                "user_id": user_id
-            }
-            logger.info(f"✅ Mensaje procesado para el usuario {user_id}")
-            return jsonify(response_data)
-        else:
-            # Caso improbable si generate_chatbot_response no lanza excepción pero devuelve None
-            logger.error(f"❌ generate_chatbot_response devolvió None para {user_id}")
+        # --- PREPARACIÓN DE LA RESPUESTA ---
+        if not isinstance(chatbot_response, dict):
+            logger.error(f"❌ generate_chatbot_response devolvió un tipo inesperado: {type(chatbot_response)}")
             return jsonify({
                 "status": "success",
-                "response": "Lo siento, no pude generar una respuesta. Por favor, inténtalo de nuevo.",
+                "response": "Ups, parece que tuve un pequeño problema interno.",
                 "sources": [],
-                "user_id": user_id
+                "user_id": user_id,
+                "error_flag": True,
             })
 
+        # Extraer componentes con valores por defecto
+        response_text = chatbot_response.get('response', 'Lo siento, no tengo una respuesta para esa consulta.')
+        sources_list = chatbot_response.get('sources', [])
+        # --- CAMBIO CLAVE: Obtener la intención detectada ---
+        detected_intent = chatbot_response.get('detected_intent', 'general')
+
+        # Validar tipos
+        if not isinstance(response_text, str):
+            logger.warning(f"⚠️ 'response' no es string, es {type(response_text)}. Convirtiendo.")
+            response_text = str(response_text)
+        if not isinstance(sources_list, list):
+            logger.warning(f"⚠️ 'sources' no es lista, es {type(sources_list)}. Convirtiendo.")
+            sources_list = list(sources_list) if hasattr(sources_list, '__iter__') else []
+
+        # --- LÓGICA PARA MOSTRAR SUGERENCIAS ---
+        # Solo mostrar sugerencias si la intención es de producto o si el backend las incluyó
+        # y no estamos en un flujo de soporte.
+        filtered_sources = sources_list if detected_intent == "product_inquiry" else []
+
+        # Preparar respuesta para el frontend
+        response_data = {
+            "status": "success",
+            "response": response_text,
+            "sources": filtered_sources, # Devolver las fuentes filtradas
+            "user_id": user_id,
+            # Pasar la intención al frontend si se necesita para lógica adicional
+            "detected_intent": detected_intent 
+        }
+
+        logger.info(f"📤 Mensaje procesado y respuesta enviada para el usuario {user_id} (Intent: {detected_intent})")
+        return jsonify(response_data)
+
     except Exception as e:
-        # Error general no relacionado con la generación de respuesta
-        logger.error(f"❌ Error general al procesar mensaje para {user_id}: {str(e)}", exc_info=True)
+        logger.critical(f"❌ Error crítico no manejado en /api/chat/message: {str(e)}", exc_info=True)
         return jsonify({
             "status": "error",
             "message": "Error interno del servidor al procesar tu mensaje"
         }), 500
+
 # --- Fin del nuevo handle_message ---
 
+@app.route('/api/chat/support', methods=['POST'])
+def request_support():
+    """Solicita soporte humano"""
+    try:
+        data = request.json
+        logger.info(f"🆘 Solicitud de soporte recibida: {json.dumps(data) if data else 'Sin datos'}")
+
+        # Validación de datos
+        if not data:
+            return jsonify({
+                "status": "error",
+                "message": "Datos JSON requeridos"
+            }), 400
+
+        user_id = data.get('user_id')
+        contact_info = data.get('contact_info', '').strip()
+
+        # Validaciones
+        if not user_id or sessions.get(user_id) is None:
+            logger.warning(f"⚠️ Solicitud de soporte rechazada: Sesión no válida para {user_id}")
+            return jsonify({
+                "status": "error",
+                "message": "Sesión no válida. Por favor, inicia una nueva sesión de chat."
+            }), 400
+
+        if not contact_info:
+            logger.warning(f"⚠️ Solicitud de soporte rechazada: Información de contacto faltante para {user_id}")
+            return jsonify({
+                "status": "error",
+                "message": "Se requiere información de contacto (correo o teléfono)"
+            }), 400
+
+        # Obtener historial completo
+        conversation_history = sessions[user_id]
+        full_history = conversation_history.get_full_history()
+
+        if not full_history:
+             logger.warning(f"⚠️ Solicitud de soporte: Historial vacío para {user_id}")
+            full_history = []
+
+        # Preparar datos para el ticket
+        last_query = ""
+        last_response = ""
+        if full_history:
+            last_exchange = full_history[-1]
+            last_query = last_exchange.get('query', 'No disponible')
+            last_response = last_exchange.get('response', 'No disponible')
+
+        # --- CAMBIO CLAVE: Capturar el ID del ticket ---
+        try:
+            ticket_id = create_support_ticket(
+                query=last_query,
+                response=last_response,
+                conversation_history=full_history,
+                contact_info=contact_info,
+                priority="media",
+                reason="Solicitud de soporte humano desde el widget de chat"
+            )
+            logger.info(f"✅ Ticket de soporte creado para el usuario {user_id} con ID: {ticket_id}")
+            # --- CAMBIO CLAVE: Devolver el ticket_id al frontend ---
+            return jsonify({
+                "status": "success",
+                "message": f"✅ Ticket de soporte creado. Tu número de folio es: **{ticket_id}**. Un representante se contactará contigo pronto a través de {contact_info}.",
+                "ticket_id": ticket_id
+            })
+
+        except Exception as ticket_error:
+            logger.error(f"❌ Error al crear ticket de soporte para {user_id}: {str(ticket_error)}", exc_info=True)
+            return jsonify({
+                "status": "error",
+                "message": "Error al crear tu ticket de soporte. Por favor, inténtalo de nuevo o contacta directamente a soporte@masamadremonterrey.com"
+            }), 500
+
+    except Exception as e:
+        logger.critical(f"❌ Error crítico no manejado en /api/chat/support: {str(e)}", exc_info=True)
+        return jsonify({
+            "status": "error",
+            "message": "Error interno del servidor al procesar tu solicitud de soporte"
+        }), 500
 
 
 @app.route('/api/chat/feedback', methods=['POST'])
@@ -333,97 +432,6 @@ def handle_feedback():
             "message": "Error interno del servidor al registrar tu retroalimentación"
         }), 500
 
-@app.route('/api/chat/support', methods=['POST'])
-def request_support():
-    """Solicita soporte humano"""
-    try:
-        data = request.json
-        logger.info(f"🆘 Solicitud de soporte recibida: {json.dumps(data) if data else 'Sin datos'}")
-
-        # Validación de datos
-        if not data:
-            return jsonify({
-                "status": "error",
-                "message": "Datos JSON requeridos"
-            }), 400
-
-        user_id = data.get('user_id')
-        contact_info = data.get('contact_info', '').strip() # .strip() para eliminar espacios
-
-        # Validaciones
-        if not user_id or sessions.get(user_id) is None: # Mejora: usar .get()
-            logger.warning(f"⚠️ Solicitud de soporte rechazada: Sesión no válida para {user_id}")
-            return jsonify({
-                "status": "error",
-                "message": "Sesión no válida. Por favor, inicia una nueva sesión de chat."
-            }), 400
-
-        if not contact_info:
-            logger.warning(f"⚠️ Solicitud de soporte rechazada: Información de contacto faltante para {user_id}")
-            return jsonify({
-                "status": "error",
-                "message": "Se requiere información de contacto (correo o teléfono)"
-            }), 400
-
-        # Obtener historial completo
-        conversation_history = sessions[user_id]
-        full_history = conversation_history.get_full_history()
-
-        if not full_history:
-            logger.warning(f"⚠️ Solicitud de soporte: Historial vacío para {user_id}")
-            # No necesariamente un error, podría ser la primera interacción
-            # Decidir si se permite o no soporte sin historial
-            full_history = [] # Proceder con historial vacío
-
-        # Importar y llamar a la función de creación de ticket
-        # Mover el import al interior del try para manejar errores de importación
-        try:
-            from support_system import create_support_ticket
-        except ImportError as import_error:
-            logger.critical(f"❌ Módulo support_system no encontrado: {str(import_error)}")
-            return jsonify({
-                "status": "error",
-                "message": "Servicio de soporte no disponible temporalmente"
-            }), 500
-
-        # Preparar datos para el ticket
-        last_query = ""
-        last_response = ""
-        if full_history:
-            last_exchange = full_history[-1]
-            last_query = last_exchange.get('query', 'No disponible')
-            last_response = last_exchange.get('response', 'No disponible')
-
-        # Crear ticket de soporte
-        try:
-            ticket_id = create_support_ticket(
-                query=last_query,
-                response=last_response,
-                conversation_history=full_history,
-                contact_info=contact_info,
-                priority="media", # Considerar hacer esto configurable o basado en contexto
-                reason="Solicitud de soporte humano desde el widget de chat"
-            )
-            logger.info(f"✅ Ticket de soporte creado para el usuario {user_id} con ID: {ticket_id}")
-            return jsonify({
-                "status": "success",
-                "message": "Ticket de soporte creado. Un representante se contactará contigo pronto.",
-                "ticket_id": ticket_id # Opcional: devolver el ID del ticket
-            })
-
-        except Exception as ticket_error:
-            logger.error(f"❌ Error al crear ticket de soporte para {user_id}: {str(ticket_error)}", exc_info=True)
-            return jsonify({
-                "status": "error",
-                "message": "Error al crear tu ticket de soporte. Por favor, inténtalo de nuevo o contacta directamente a soporte@masamadremonterrey.com"
-            }), 500
-
-    except Exception as e:
-        logger.critical(f"❌ Error crítico no manejado en /api/chat/support: {str(e)}", exc_info=True)
-        return jsonify({
-            "status": "error",
-            "message": "Error interno del servidor al procesar tu solicitud de soporte"
-        }), 500
 
 @app.route('/api/health', methods=['GET'])
 def health_check():
