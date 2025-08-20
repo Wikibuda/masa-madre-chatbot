@@ -124,7 +124,7 @@ def handle_message():
         logger.info(f"📩 Mensaje recibido: {json.dumps(data) if data else 'Sin datos'}")
 
         # Validación de datos de entrada
-        if not 
+        if not data: 
             logger.error("❌ Error: Solicitud sin datos JSON")
             return jsonify({
                 "status": "error",
@@ -275,7 +275,7 @@ def handle_feedback():
         logger.info(f"📊 Feedback recibido: {json.dumps(data) if data else 'Sin datos'}")
 
         # Validación de datos
-        if not 
+        if not data: 
             return jsonify({
                 "status": "error",
                 "message": "Datos JSON requeridos"
@@ -367,7 +367,7 @@ def request_support():
         logger.info(f"🆘 Solicitud de soporte recibida: {json.dumps(data) if data else 'Sin datos'}")
 
         # Validación de datos
-        if not 
+        if not data: 
             return jsonify({
                 "status": "error",
                 "message": "Datos JSON requeridos"
