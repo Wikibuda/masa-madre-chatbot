@@ -398,7 +398,7 @@ def request_support():
         full_history = conversation_history.get_full_history()
 
         if not full_history:
-             logger.warning(f"⚠️ Solicitud de soporte: Historial vacío para {user_id}")
+            logger.warning(f"⚠️ Solicitud de soporte: Historial vacío para {user_id}")
             # No necesariamente un error, podría ser la primera interacción
             # Decidir si se permite o no soporte sin historial
             full_history = [] # Proceder con historial vacío
