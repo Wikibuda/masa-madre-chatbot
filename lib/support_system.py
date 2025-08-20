@@ -57,88 +57,87 @@ def create_support_ticket(query, response, conversation_history, contact_info, p
     # Generar el ID del ticket primero para usarlo en logs y posibles errores
     ticket_id = f"TICKET-{int(datetime.now().timestamp())}"
     
-# Crear ticket como diccionario
-# --- CORRECCIÓN CLAVE: Procesar conversation_history para hacerlo serializable ---
-# Crear una versión serializable del historial
-serializable_history = []
-if isinstance(conversation_history, list):
-    for exchange in conversation_history:
-        # Asumimos que cada 'exchange' es un dict con claves como 'query', 'response', 'sources', etc.
-        # Creamos una copia y procesamos los campos potencialmente problemáticos.
-        safe_exchange = {}
-        for key, value in exchange.items():
-            # Si el valor es un objeto no básico, intentamos convertirlo o lo excluimos.
-            # Por ejemplo, 'sources' podría contener ScoredVectors.
-            if key == 'sources' and isinstance(value, list):
-                # Procesar la lista de fuentes
-                safe_sources = []
-                for source in value:
-                    if isinstance(source, dict):
-                        # Copiar solo los campos básicos que sabemos que son serializables
-                        # Puedes ajustar esta lista según la estructura real de tus 'source'
-                        safe_source = {
-                            'page_content': str(source.get('page_content', '')), # Convertir a string por si acaso
-                            'metadata': source.get('metadata', {}) # Asumimos que metadata es un dict serializable
-                        }
-                        # Asegurarse de que metadata también sea seguro
-                        if isinstance(safe_source['metadata'], dict):
-                             # Si hay campos específicos en metadata que podrían ser problemáticos,
-                             # se pueden procesar aquí. Por ahora, asumimos que son básicos.
-                             pass
+    # --- CORRECCIÓN CLAVE: Procesar conversation_history para hacerlo serializable ---
+    # Crear una versión serializable del historial
+    serializable_history = []
+    if isinstance(conversation_history, list):
+        for exchange in conversation_history:
+            # Asumimos que cada 'exchange' es un dict con claves como 'query', 'response', 'sources', etc.
+            # Creamos una copia y procesamos los campos potencialmente problemáticos.
+            safe_exchange = {}
+            for key, value in exchange.items():
+                # Si el valor es un objeto no básico, intentamos convertirlo o lo excluimos.
+                # Por ejemplo, 'sources' podría contener ScoredVectors.
+                if key == 'sources' and isinstance(value, list):
+                    # Procesar la lista de fuentes
+                    safe_sources = []
+                    for source in value:
+                        if isinstance(source, dict):
+                            # Copiar solo los campos básicos que sabemos que son serializables
+                            # Puedes ajustar esta lista según la estructura real de tus 'source'
+                            safe_source = {
+                                'page_content': str(source.get('page_content', '')), # Convertir a string por si acaso
+                                'metadata': source.get('metadata', {}) # Asumimos que metadata es un dict serializable
+                            }
+                            # Asegurarse de que metadata también sea seguro
+                            if isinstance(safe_source['metadata'], dict):
+                                 # Si hay campos específicos en metadata que podrían ser problemáticos,
+                                 # se pueden procesar aquí. Por ahora, asumimos que son básicos.
+                                 pass
+                            else:
+                                # Si metadata no es un dict, lo convertimos a string
+                                safe_source['metadata'] = str(safe_source['metadata'])
+                            safe_sources.append(safe_source)
                         else:
-                            # Si metadata no es un dict, lo convertimos a string
-                            safe_source['metadata'] = str(safe_source['metadata'])
-                        safe_sources.append(safe_source)
-                    else:
-                        # Si la fuente no es un dict, la convertimos a string
-                        safe_sources.append(str(source))
-                safe_exchange[key] = safe_sources
-            elif isinstance(value, (str, int, float, bool)) or value is None:
-                # Tipos básicos, se pueden copiar directamente
-                safe_exchange[key] = value
-            elif isinstance(value, dict):
-                # Diccionarios: asumimos que son seguros, pero podrías querer procesarlos recursivamente
-                # para mayor seguridad. Por ahora, los copiamos.
-                safe_exchange[key] = value.copy() # Copia superficial
-            elif isinstance(value, list):
-                # Listas: procesamos elementos individuales si es necesario
-                # Esta es una simplificación. Podrías necesitar lógica más compleja aquí.
-                safe_list = []
-                for item in value:
-                    if isinstance(item, (str, int, float, bool)) or item is None:
-                        safe_list.append(item)
-                    elif isinstance(item, dict):
-                        safe_list.append(item.copy()) # Copia superficial de dicts en listas
-                    else:
-                        # Convertir cualquier otro tipo a string
-                        safe_list.append(str(item))
-                safe_exchange[key] = safe_list
-            else:
-                # Cualquier otro tipo (incluyendo objetos como ScoredVector) se convierte a string
-                safe_exchange[key] = str(value)
-        serializable_history.append(safe_exchange)
-else:
-    # Si conversation_history no es una lista (lo esperado), lo convertimos a string o guardamos una lista vacía
-    logger.warning(f"conversation_history no es una lista. Tipo recibido: {type(conversation_history)}. Se guardará como string o lista vacía.")
-    if conversation_history is not None:
-        serializable_history = str(conversation_history)
+                            # Si la fuente no es un dict, la convertimos a string
+                            safe_sources.append(str(source))
+                    safe_exchange[key] = safe_sources
+                elif isinstance(value, (str, int, float, bool)) or value is None:
+                    # Tipos básicos, se pueden copiar directamente
+                    safe_exchange[key] = value
+                elif isinstance(value, dict):
+                    # Diccionarios: asumimos que son seguros, pero podrías querer procesarlos recursivamente
+                    # para mayor seguridad. Por ahora, los copiamos.
+                    safe_exchange[key] = value.copy() # Copia superficial
+                elif isinstance(value, list):
+                    # Listas: procesamos elementos individuales si es necesario
+                    # Esta es una simplificación. Podrías necesitar lógica más compleja aquí.
+                    safe_list = []
+                    for item in value:
+                        if isinstance(item, (str, int, float, bool)) or item is None:
+                            safe_list.append(item)
+                        elif isinstance(item, dict):
+                            safe_list.append(item.copy()) # Copia superficial de dicts en listas
+                        else:
+                            # Convertir cualquier otro tipo a string
+                            safe_list.append(str(item))
+                    safe_exchange[key] = safe_list
+                else:
+                    # Cualquier otro tipo (incluyendo objetos como ScoredVector) se convierte a string
+                    safe_exchange[key] = str(value)
+            serializable_history.append(safe_exchange)
     else:
-        serializable_history = []
+        # Si conversation_history no es una lista (lo esperado), lo convertimos a string o guardamos una lista vacía
+        logger.warning(f"conversation_history no es una lista. Tipo recibido: {type(conversation_history)}. Se guardará como string o lista vacía.")
+        if conversation_history is not None:
+            serializable_history = str(conversation_history)
+        else:
+            serializable_history = []
 
-ticket = {
-    "ticket_id": ticket_id,
-    "timestamp": datetime.now().isoformat(),
-    "query": query,
-    "last_response": response,
-    "conversation_history": serializable_history, # <-- Usar la versión procesada
-    "contact_info": contact_info,
-    "priority": priority,
-    "reason": reason,
-    "status": "abierto"
-}
-# --- FIN CORRECCIÓN CLAVE ---
+    # Crear ticket como diccionario usando la versión procesada
+    ticket = {
+        "ticket_id": ticket_id,
+        "timestamp": datetime.now().isoformat(),
+        "query": query,
+        "last_response": response,
+        "conversation_history": serializable_history, # <-- Usar la versión procesada
+        "contact_info": contact_info,
+        "priority": priority,
+        "reason": reason,
+        "status": "abierto"
+    }
+    # --- FIN CORRECCIÓN CLAVE ---
 
-    
     # Guardar en archivo
     try:
         # Leer tickets existentes
@@ -149,16 +148,18 @@ ticket = {
             # Si el archivo no existe o está corrupto, empezar con una lista vacía
             tickets = []
             logger.info(f"Archivo de tickets no encontrado o vacío. Creando uno nuevo: {support_system['tickets_file']}")
-        
+
         # Añadir el nuevo ticket
         tickets.append(ticket)
-        
+
         # Guardar la lista actualizada
-        with open(support_system["tickets_file"], 'w') as f:
+        # --- CORRECCIÓN SECUNDARIA: Asegurar codificación y serialización ---
+        with open(support_system["tickets_file"], 'w', encoding='utf-8') as f: # Especificar encoding
             json.dump(tickets, f, indent=2, ensure_ascii=False) # ensure_ascii=False para caracteres especiales
-        
+        # --- FIN CORRECCIÓN SECUNDARIA ---
+
         logger.info(f"✅ Ticket creado: {ticket['ticket_id']} (Prioridad: {priority})")
-        
+
     except Exception as e:
         error_msg = f"❌ Error al guardar ticket {ticket_id}: {str(e)}"
         logger.error(error_msg)
@@ -331,4 +332,3 @@ if __name__ == "__main__":
         print(f"\n⚠️ No se pudo cerrar el ticket {test_ticket_id}")
     
     print("\n✅ Pruebas completadas exitosamente")
-
