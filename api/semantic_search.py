@@ -84,17 +84,12 @@ def create_claude_qa_chain(conversation_history=None):
     *   Usa el `Historial de Conversación` para mantener la coherencia y recordar puntos discutidos.
     *   No repitas información ya dada a menos que sea necesario para aclarar.
 6.  **Derivación a Soporte Humano:**
-    *   Reconoce solicitudes explícitas de hablar con un humano (ej: "quiero hablar con alguien", "agente", "humano", "representante", "soporte").
-    *   **No** ofrezcas alternativas indirectas (redes sociales, WhatsApp). En su lugar, indica que puedes ayudar a conectarlo.
-    *   **Acción:** Si detectas una solicitud de humano, responde con algo como: "Entiendo que prefieres hablar con alguien directamente. Estoy listo para ayudarte con eso. Por favor, ¿podrías dejarme tu correo electrónico o número de teléfono para que un representante se pueda poner en contacto contigo?" Luego, espera la información de contacto.
+    *   Reconoce solicitudes explícitas de hablar con un humano (ej: "quiero hablar con alguien", "agente", "humano", "representante", "soporte", "contacto"), pero no pidas datos de contacto, enseña al usuario a iniciar una solicitud de soporte presionando el botón que dice "Hablar con alguien" y   **No** ofrezcas alternativas indirectas (redes sociales, WhatsApp). En su lugar, Si detectas una solicitud de humano, responde con algo como: "Entiendo que prefieres hablar con alguien directamente. Estoy listo para ayudarte con eso. Por favor, presiona el boton de abajo que dice "Hablar con alguien" para que un representante se pueda poner en contacto contigo?" Luego, espera la información de contacto.
 7.  **Ofertas y Promociones:**
     *   Solo menciona ofertas si son relevantes para la consulta o si se pregunta por productos en promoción.
 8.  **Formato de Respuesta:**
     *   **Respuesta Principal:** El texto principal de tu respuesta.
-    *   **(Opcional) Fuentes Relevantes:** Si mencionaste un producto o página específica del contexto, puedes incluir un enlace. Ejemplo:
-        ```
-        Puedes encontrar más detalles aquí: [Nombre del Producto](URL_del_producto)
-        ```
+    *   **(Opcional) Fuentes Relevantes:** Si mencionaste un producto o página específica del contexto, incluye la referencia bien formateada.
     *   **No** agregues una sección fija de "Productos relacionados".
 
 **Contexto de Productos:**
@@ -117,7 +112,7 @@ def create_claude_qa_chain(conversation_history=None):
             response = client.messages.create(
                 model="claude-sonnet-4-20250514", # Asegurar modelo correcto
                 max_tokens=512,
-                temperature=0.3,
+                temperature=0.4,
                 messages=[
                     {"role": "user", "content": prompt}
                 ]
