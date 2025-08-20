@@ -326,7 +326,7 @@ def handle_feedback():
             record_feedback(
                 query=last_exchange['query'],
                 response=last_exchange['response'],
-                provider=provider_info, # Usar el provider de la respuesta
+                provider="claude", # Asumiendo que Claude es el proveedor, ajustar si es diferente
                 rating=rating,
                 user_comment=comment,
                 session_id=user_id
