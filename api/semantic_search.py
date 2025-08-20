@@ -3,15 +3,16 @@
 Sistema de Búsqueda Semántica para Masa Madre Monterrey
 - Integración con Claude para generación de respuestas
 - Historial de conversación para contexto continuo
+- Sistema de retroalimentación para mejora continua
 """
-# --- Eliminadas importaciones no esenciales para esta función pura ---
+# --- INICIO DE CAMBIOS: Eliminadas importaciones no esenciales para esta función pura ---
 # Se eliminan imports relacionados con retroalimentación automática y soporte humano
 # que se manejarán en otros niveles (API o frontend).
 # ---
-
 import os
 import json
 import logging
+from datetime import datetime
 from dotenv import load_dotenv
 from pinecone import Pinecone
 from anthropic import Anthropic
@@ -34,7 +35,7 @@ logger = logging.getLogger(__name__)
 # Cargar variables de entorno
 load_dotenv()
 
-# --- Constantes para el filtrado ---
+# --- CONSTANTES PARA EL FILTRADO ---
 # Umbral de score de Pinecone para considerar un documento relevante para sugerencias
 PRODUCT_RELEVANCE_THRESHOLD = 0.80 # Ajustar según pruebas
 
@@ -67,7 +68,7 @@ def get_pinecone_index():
 def create_claude_qa_chain(conversation_history=None):
     """Crea una cadena de preguntas y respuestas usando Claude"""
     # Configurar template de prompt
-    template = """Eres un asistente virtual amigable, experto y entusiasta de la panadería artesanal con masa madre para Masa Madre Monterrey, una panadería artesanal de venta exlusiva en línea. Tu objetivo es ser útil, claro y directo.
+    template = """Eres Pancho, un asistente virtual amigable, experto y entusiasta de la panadería artesanal con masa madre para Masa Madre Monterrey. Tu objetivo es ser útil, claro y directo.
 
 **Instrucciones de Comportamiento:**
 
@@ -84,12 +85,17 @@ def create_claude_qa_chain(conversation_history=None):
     *   Usa el `Historial de Conversación` para mantener la coherencia y recordar puntos discutidos.
     *   No repitas información ya dada a menos que sea necesario para aclarar.
 6.  **Derivación a Soporte Humano:**
-    *   Reconoce solicitudes explícitas de hablar con un humano (ej: "quiero hablar con alguien", "agente", "humano", "representante", "soporte", "contacto"), pero no pidas datos de contacto, enseña al usuario a iniciar una solicitud de soporte presionando el botón que dice "Hablar con alguien" y   **No** ofrezcas alternativas indirectas (redes sociales, WhatsApp). En su lugar, Si detectas una solicitud de humano, responde con algo como: "Entiendo que prefieres hablar con alguien directamente. Estoy listo para ayudarte con eso. Por favor, presiona el boton de abajo que dice "Hablar con alguien" para que un representante se pueda poner en contacto contigo?" Luego, espera la información de contacto.
+    *   Reconoce solicitudes explícitas de hablar con un humano (ej: "quiero hablar con alguien", "agente", "humano", "representante", "soporte").
+    *   **No** ofrezcas alternativas indirectas (redes sociales, WhatsApp). En su lugar, indica que puedes ayudar a conectarlo.
+    *   **Acción:** Si detectas una solicitud de humano, responde con algo como: "Entiendo que prefieres hablar con alguien directamente. Estoy listo para ayudarte con eso. Por favor, ¿podrías dejarme tu correo electrónico o número de teléfono para que un representante se pueda poner en contacto contigo?" Luego, espera la información de contacto.
 7.  **Ofertas y Promociones:**
     *   Solo menciona ofertas si son relevantes para la consulta o si se pregunta por productos en promoción.
 8.  **Formato de Respuesta:**
     *   **Respuesta Principal:** El texto principal de tu respuesta.
-    *   **(Opcional) Fuentes Relevantes:** Si mencionaste un producto o página específica del contexto, incluye la referencia bien formateada.
+    *   **(Opcional) Fuentes Relevantes:** Si mencionaste un producto o página específica del contexto, puedes incluir un enlace. Ejemplo:
+        ```
+        Puedes encontrar más detalles aquí: [Nombre del Producto](URL_del_producto)
+        ```
     *   **No** agregues una sección fija de "Productos relacionados".
 
 **Contexto de Productos:**
@@ -112,7 +118,7 @@ def create_claude_qa_chain(conversation_history=None):
             response = client.messages.create(
                 model="claude-sonnet-4-20250514", # Asegurar modelo correcto
                 max_tokens=512,
-                temperature=0.4,
+                temperature=0.3,
                 messages=[
                     {"role": "user", "content": prompt}
                 ]
@@ -214,7 +220,7 @@ def create_claude_qa_chain(conversation_history=None):
     return qa_chain
 
 # --- CAMBIO PRINCIPAL: generate_chatbot_response refactorizada ---
-def generate_chatbot_response(query, user_id=None, conversation_history=None):
+def generate_chatbot_response(query, user_id=None, conversation_history=None, detected_human_intent=False):
     """
     Genera una respuesta para el chatbot usando búsqueda semántica con Claude.
     Esta función se enfoca únicamente en generar la respuesta basada en la consulta.
@@ -224,6 +230,7 @@ def generate_chatbot_response(query, user_id=None, conversation_history=None):
         query (str): Consulta del usuario.
         user_id (str): ID único del usuario (opcional, para registro de errores).
         conversation_history (ConversationHistory): Historial existente (opcional).
+        detected_human_intent (bool): Si se detectó intención de hablar con humano en el frontend/backend.
 
     Returns:
         dict: Diccionario con 'response' (str), 'sources' (list[dict]) y 'provider' (str).

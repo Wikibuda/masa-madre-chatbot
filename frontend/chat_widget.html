@@ -202,6 +202,7 @@
             display: flex;
             align-items: center;
             gap: 5px; /* Espacio entre icono y texto */
+            transition: all 0.3s ease; /* Transición suave para efectos */
         }
         #chatbot-request-support:hover:not(:disabled) {
             background-color: #5a6268; /* Gris más oscuro al pasar el mouse */
@@ -209,6 +210,15 @@
         #chatbot-request-support:disabled {
             background-color: #cccccc; /* Gris para estado deshabilitado */
             cursor: not-allowed;
+        }
+        /* --- NUEVO: Animación de pulso para el botón de soporte --- */
+        @keyframes pulse {
+            0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(108, 117, 125, 0.7); }
+            70% { transform: scale(1.05); box-shadow: 0 0 0 10px rgba(108, 117, 125, 0); }
+            100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(108, 117, 125, 0); }
+        }
+        .pulse-animation {
+            animation: pulse 1s 2; /* 2 iteraciones */
         }
         /* --- FIN NUEVO --- */
         #chatbot-footer {
@@ -344,7 +354,7 @@
         // --- FIN FUNCIONES DE DEPURACIÓN ---
 
         // --- CONFIGURACIÓN DE LA API ---
-        const API_URL = 'https://masa-madre-chatbot-api.onrender.com'; // ¡REEMPLAZA CON TU URL REAL SI ES DIFERENTE!
+        const API_URL = 'https://masa-madre-chatbot-api.onrender.com'; // ¡REEMPLAZA CON TU URL REAL!
 
         document.addEventListener('DOMContentLoaded', function() {
             logDebug("DOM cargado. Iniciando chatbot...");
@@ -372,7 +382,7 @@
                 lastResponse: null,
                 chatSessionInitialized: false,
                 // --- NUEVO: Estados y contadores para manejo ---
-                currentMode: 'normal',
+                currentMode: 'normal', // 'normal', 'awaitingSupport'
                 supportRequestsCount: 0,
                 maxSupportRequests: 2,
                 feedbackSubmitted: false,
@@ -390,7 +400,7 @@
                         this.body.style.display = 'flex';
                     } else {
                         logDebug("Chat iniciará CERRADO según localStorage o por defecto.");
-                        this.body.style.display = 'none';
+                        this.body.style.display = 'none'; // Asegurar que esté oculto
                     }
                 },
                 
@@ -410,8 +420,13 @@
                 // Configura los listeners de eventos
                 setupEventListeners: function() {
                     logDebug("Configurando Event Listeners...");
+                    // Toggle para abrir/cerrar el chat
                     this.header.addEventListener('click', this.toggleChat.bind(this));
+                    
+                    // Enviar mensaje al hacer clic en el botón
                     this.sendButton.addEventListener('click', this.sendMessage.bind(this));
+                    
+                    // Enviar mensaje al presionar Enter
                     this.input.addEventListener('keypress', (e) => {
                         if (e.key === 'Enter') {
                             this.sendMessage();
@@ -478,9 +493,11 @@
                 toggleChat: function() {
                     this.isChatOpen = !this.isChatOpen;
                     this.body.style.display = this.isChatOpen ? 'flex' : 'none';
+                    // Guardar estado en localStorage
                     localStorage.setItem('chatbotOpen', this.isChatOpen);
                     logDebug(`Chat toggled. Nuevo estado: isChatOpen=${this.isChatOpen}`);
         
+                    // Si el chat se abre y no hay sesión iniciada, iniciar una
                     if (this.isChatOpen && !this.chatSessionInitialized) {
                         logDebug("Chat abierto y sesión no inicializada. Llamando a initializeChatSession...");
                         this.initializeChatSession();
@@ -492,7 +509,9 @@
                     logDebug(`Iniciando sesión de chat con userId: ${this.userId}`);
                     fetch(`${API_URL}/api/chat/init`, {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
                         body: JSON.stringify({ user_id: this.userId })
                     })
                     .then(response => response.json())
@@ -500,6 +519,7 @@
                         if (data.status === 'success') {
                             this.chatSessionInitialized = true;
                             logDebug("Sesión de chat inicializada exitosamente.");
+                            // No añadimos el mensaje de bienvenida aquí porque ya está en el HTML
                         } else {
                             logDebug(`Error en inicialización de sesión: ${data.message || 'Desconocido'}`);
                             this.addMessage('Lo siento, estoy teniendo problemas para iniciar la sesión de chat. Por favor, inténtalo de nuevo más tarde.', 'bot');
@@ -520,66 +540,172 @@
                     // --- MANEJO DEL MODO SOPORTE ---
                     if (this.currentMode === 'awaitingSupport') {
                         logDebug("Procesando mensaje en modo 'awaitingSupport'");
-                        if (message) {
+                        const contactInfo = message;
+                        if (contactInfo) {
                             this.input.value = '';
-                            this.addMessage(`Mensaje recibido: ${message}`, 'user');
-                            this.addMessage("He iniciado el proceso para conectarte con un representante. Un miembro de nuestro equipo se pondrá en contacto contigo pronto utilizando la información que ya tenemos.", 'bot');
+                            this.addMessage(`Información de contacto: ${contactInfo}`, 'user');
+                            
+                            // Enviar solicitud de soporte
+                            fetch(`${API_URL}/api/chat/support`, {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json'
+                                },
+                                body: JSON.stringify({
+                                    user_id: this.userId,
+                                    contact_info: contactInfo // Enviar el mensaje completo como contacto
+                                })
+                            })
+                            .then(response => {
+                                logDebug(`Respuesta de /api/chat/support: Status ${response.status}`);
+                                if (!response.ok) {
+                                    return response.json().then(err => {
+                                        console.error('❌ Detalles del error en /support:', err);
+                                        logDebug(`Error en /api/chat/support: ${JSON.stringify(err)}`);
+                                        throw new Error(err.message || `HTTP error! status: ${response.status}`);
+                                    });
+                                }
+                                return response.json();
+                            })
+                            .then(data => {
+                                if (data.status === 'success') {
+                                    // --- CAMBIO CLAVE: Mostrar el mensaje con el folio ---
+                                    this.addMessage(data.message, 'bot');
+                                    logDebug(`✅ Ticket de soporte creado con ID: ${data.ticket_id}`);
+                                    
+                                    // --- NUEVO: Desactivar botón después de éxito ---
+                                    if (this.requestSupportButton) {
+                                        this.requestSupportButton.disabled = true;
+                                        this.requestSupportButton.textContent = "Solicitud Enviada";
+                                        this.requestSupportButton.style.backgroundColor = "#28a745"; // Verde
+                                    }
+                                    // --- FIN NUEVO ---
+                                } else {
+                                    this.addMessage(data.message || 'Hubo un problema al crear tu ticket de soporte.', 'bot');
+                                    logDebug(`Error en respuesta de soporte: ${data.message || 'Desconocido'}`);
+                                }
+                            })
+                            .catch(error => {
+                                console.error('Error requesting support:', error);
+                                logDebug(`Error fatal en requestSupport: ${error.message}`);
+                                this.addMessage('Hubo un problema al crear tu ticket de soporte. Por favor, contacta directamente a soporte@masamadremonterrey.com', 'bot');
+                            })
+                            .finally(() => {
+                                // Restaurar el estado normal
+                                this.currentMode = 'normal';
+                                logDebug("Modo de soporte finalizado. Estado restaurado a 'normal'.");
+                            });
                         }
-                        return;
+                        return; // Salir, ya manejamos el mensaje
                     }
                     // --- FIN MANEJO DEL MODO SOPORTE ---
 
+                    // Asegurarse de que haya un user_id válido
                     if (!this.userId) {
                         logDebug("No hay userId, llamando a initializeChatSession...");
                         this.initializeChatSession();
-                        setTimeout(() => { this.sendMessage(); }, 500);
+                        // Esperar un momento antes de enviar el mensaje
+                        setTimeout(() => {
+                            this.sendMessage();
+                        }, 500);
                         return;
                     }
                     
+                    // Mostrar mensaje del usuario
                     this.addMessage(message, 'user');
                     this.input.value = '';
                     
+                    // Mostrar loading
                     const loadingId = 'loading_' + Date.now();
                     this.addLoadingIndicator(loadingId);
                     
                     this.isProcessing = true;
                     logDebug(`Enviando mensaje: "${message}" con userId: ${this.userId}`);
                     
+                    // Enviar al backend
                     fetch(`${API_URL}/api/chat/message`, {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ user_id: this.userId, message: message })
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            user_id: this.userId,
+                            message: message
+                        })
                     })
                     .then(response => {
                         logDebug(`📡 Estado de respuesta de /api/chat/message: ${response.status}`);
                         if (!response.ok) {
                             return response.json().then(err => {
-                                console.error('❌ Detalles del error en /api/chat/message:', err);
+                                console.error('❌ Detalles del error:', err);
                                 logDebug(`❌ Error en /api/chat/message. Status: ${response.status}. Body: ${JSON.stringify(err)}`);
-                                throw new Error(err.message || `HTTP error! status: ${response.status}`);
+                                throw new Error(err.message || 'Network response was not ok');
                             });
                         }
                         return response.json();
                     })
                     .then(data => {
+                        // Eliminar indicador de carga
                         this.removeElement(loadingId);
                         logDebug(`Mensaje recibido del backend: ${JSON.stringify(data).substring(0, 200)}...`);
                         
+                        // --- NUEVO: Detección de intención de derivación del backend ---
+                        // Verificar si el backend indica intención de derivación
+                        const backendDetectedIntent = data.detected_intent;
+                        const botResponseText = data.response || '';
+                        
+                        // Condición 1: Backend envía señal explícita
+                        const isExplicitHandoffSignal = backendDetectedIntent === "intent_to_handoff";
+                        
+                        // Condición 2: Backend incluye frase clave en la respuesta (fallback)
+                        const containsHandoffPhrase = botResponseText.includes("presiona el boton de abajo que dice 'Hablar con alguien'");
+                        
+                        const shouldTriggerHandoffUI = isExplicitHandoffSignal || containsHandoffPhrase;
+                        
+                        if (shouldTriggerHandoffUI) {
+                            logDebug("Se detectó intención de derivación a humano desde el backend.");
+                            // Hacer que el botón parpadee para llamar la atención
+                            if (this.requestSupportButton) {
+                                this.requestSupportButton.classList.add('pulse-animation');
+                                // Limpiar la animación después
+                                setTimeout(() => {
+                                    this.requestSupportButton.classList.remove('pulse-animation');
+                                }, 2100); // 2 segundos + margen
+                            }
+                            
+                            // Opcional: Mostrar un mensaje adicional guiando al botón
+                            // this.addMessage("👆 Haz clic en el botón de arriba para proceder.", 'bot');
+                            
+                            // Opcional Avanzado: Simular clic automáticamente después de un delay
+                            // (Descomentar las siguientes líneas si se desea esta funcionalidad)
+                            /*
+                            setTimeout(() => {
+                                if (this.requestSupportButton && !this.requestSupportButton.disabled) {
+                                    logDebug("Activando conexión con soporte automáticamente...");
+                                    this.addMessage("Activando conexión con soporte...", 'bot');
+                                    this.requestSupport(); // Llamar a la función principal
+                                }
+                            }, 2500); // 2.5 segundos después
+                            */
+                        }
+                        // --- FIN NUEVO ---
+
+                        // Mostrar respuesta del bot
                         if (data.response) {
                             this.addMessage(data.response, 'bot');
                             this.lastResponse = data.response;
 
+                            // Mostrar sugerencias de productos si existen
                             if (data.sources && data.sources.length > 0) {
                                 this.showProductSuggestions(data.sources);
                             }
                             
                             // --- MODIFICADO: Mostrar footer y reactivar feedback ---
                             this.footer.style.display = 'block';
-                            this.feedbackSubmitted = false;
-                            this.enableFeedbackButtons();
+                            this.feedbackSubmitted = false; // Reiniciar estado de feedback para nueva respuesta
+                            this.enableFeedbackButtons(); // Reactivar botones
                             // --- FIN MODIFICADO ---
                         } else {
-                             logDebug("Advertencia: Respuesta del backend sin campo 'response'");
                             this.addMessage('No recibí una respuesta válida del servidor.', 'bot');
                         }
                     })
@@ -600,8 +726,10 @@
                     let sourcesHTML = '<div class="product-suggestion">';
                     sourcesHTML += '<strong>Productos relacionados:</strong><br>';
                     
+                    // Mostrar máximo 2 productos
                     sources.slice(0, 2).forEach(source => {
                         sourcesHTML += `<div class="product-title">`;
+                        // --- MODIFICADO: Formato con enlace HTML ---
                         if (source.url) {
                             sourcesHTML += `<a href="${source.url}" target="_blank" style="color: #8B4513; text-decoration: none; font-weight: bold;">${source.title}</a>`;
                         } else {
@@ -609,6 +737,7 @@
                         }
                         sourcesHTML += `</div>`;
                         sourcesHTML += `<div class="product-price">${source.price} - ${source.availability}</div>`;
+                        // --- FIN MODIFICADO ---
                         sourcesHTML += '<br>';
                     });
                     
@@ -616,7 +745,7 @@
                     
                     const sourcesDiv = document.createElement('div');
                     sourcesDiv.className = 'message bot';
-                    sourcesDiv.innerHTML = sourcesHTML;
+                    sourcesDiv.innerHTML = sourcesHTML; // Usar innerHTML para renderizar el enlace
                     this.messages.appendChild(sourcesDiv);
                     this.scrollToBottom();
                 },
@@ -625,6 +754,7 @@
                 addMessage: function(text, sender) {
                     const messageDiv = document.createElement('div');
                     messageDiv.className = `message ${sender}`;
+                    // Usamos textContent por seguridad, pero aplicamos pre-wrap para mantener formato.
                     messageDiv.textContent = text; 
                     this.messages.appendChild(messageDiv);
                     this.scrollToBottom();
@@ -667,7 +797,9 @@
                     
                     fetch(`${API_URL}/api/chat/feedback`, {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
                         body: JSON.stringify({
                             user_id: this.userId,
                             rating: rating,
@@ -723,6 +855,7 @@
                 requestSupport: function() {
                     logDebug("Intentando solicitar soporte.");
                     
+                    // --- NUEVO: Verificar límite de solicitudes ---
                     if (this.supportRequestsCount >= this.maxSupportRequests) {
                          logDebug(`Límite de solicitudes de soporte alcanzado (${this.maxSupportRequests}).`);
                          this.addMessage("Ya has solicitado hablar con alguien recientemente. Por favor, espera a que un representante se ponga en contacto contigo o intenta de nuevo más tarde.", 'bot');
@@ -733,65 +866,33 @@
                          }
                          return;
                     }
+                    // --- FIN NUEVO ---
 
+                    // --- MODIFICADO: Mensaje claro e inmediato ---
+                    // En lugar de esperar a que el backend lo indique, el frontend también puede iniciar el proceso
+                    // Esto es útil si el usuario escribe "soporte" directamente.
                     this.addMessage(
-                        "He iniciado el proceso para conectarte con un representante. " +
-                        "Un miembro de nuestro equipo se pondrá en contacto contigo pronto. ",
+                        "Entiendo que prefieres hablar con alguien directamente. " +
+                        "Por favor, ¿podrías dejarme tu correo electrónico o número de teléfono " +
+                        "para que un representante se pueda poner en contacto contigo?",
                         'bot'
                     );
-                    
+                    // --- FIN MODIFICADO ---
+
+                    // --- NUEVO: Cambiar modo para manejar la siguiente entrada como contacto ---
                     this.currentMode = 'awaitingSupport';
                     logDebug("Modo cambiado a 'awaitingSupport'");
+                    // --- FIN NUEVO ---
                     
+                    // --- NUEVO: Incrementar contador ---
                     this.supportRequestsCount++;
-                    logDebug(`Solicitud de soporte #${this.supportRequestsCount} realizada.`);
-                    
-                    // Enviar solicitud de soporte inmediatamente
-                    fetch(`${API_URL}/api/chat/support`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ user_id: this.userId })
-                    })
-                    .then(response => {
-                        logDebug(`Respuesta de /api/chat/support: Status ${response.status}`);
-                        if (!response.ok) {
-                            return response.json().then(err => {
-                                console.error('❌ Detalles del error en /support:', err);
-                                logDebug(`Error en /api/chat/support: ${JSON.stringify(err)}`);
-                                throw new Error(err.message || `HTTP error! status: ${response.status}`);
-                            });
-                        }
-                        return response.json();
-                    })
-                    .then(data => {
-                        if (data.status === 'success' && data.message) {
-                            this.addMessage(data.message, 'bot');
-                            logDebug(`✅ Ticket de soporte creado con ID: ${data.ticket_id || 'N/A'}`);
-                            
-                            if (this.requestSupportButton) {
-                                this.requestSupportButton.disabled = true;
-                                this.requestSupportButton.textContent = "Solicitud Enviada";
-                                this.requestSupportButton.style.backgroundColor = "#28a745";
-                            }
-                        } else {
-                            this.addMessage(data.message || 'Hubo un problema al crear tu ticket de soporte.', 'bot');
-                            logDebug(`Error en respuesta de soporte: ${data.message || 'Desconocido'}`);
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Error requesting support:', error);
-                        logDebug(`Error fatal en requestSupport: ${error.message}`);
-                        this.addMessage('Hubo un problema al crear tu ticket de soporte. Por favor, contacta directamente a soporte@masamadremonterrey.com', 'bot');
-                    })
-                    .finally(() => {
-                        this.currentMode = 'normal';
-                        logDebug("Modo de soporte finalizado. Estado restaurado a 'normal'.");
-                    });
+                    logDebug(`Solicitud de soporte #${this.supportRequestsCount} iniciada.`);
+                    // --- FIN NUEVO ---
                 }
             };
             
             // Inicializar el chatbot
-            window.chatbot.init();
+            chatbot.init();
             
              logDebug("Script principal ejecutado. Chatbot debería estar inicializado.");
         });

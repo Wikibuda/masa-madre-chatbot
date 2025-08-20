@@ -5,6 +5,9 @@
 *.swn
 *.tmp
 
+#Desarrollo y pruebas 
+tests/*
+
 # Logs y archivos de diagnóstico
 *.log
 feedback_system.log
