@@ -77,7 +77,7 @@ def init_chat():
         logger.info(f"📩 Datos de inicialización recibidos: {json.dumps(data) if data else 'Sin datos'}")
 
         # Validar datos de entrada
-        if not 
+        if not data:
             logger.error("❌ Error: Solicitud sin datos JSON")
             return jsonify({
                 "status": "error",
