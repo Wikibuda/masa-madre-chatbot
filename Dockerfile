@@ -6,9 +6,6 @@ ENV PYTHONUNBUFFERED=1 \
     
 WORKDIR /app
 
-# Crear archivos __init__.py si no existen
-RUN touch api/__init__.py && touch lib/__init__.py
-
 # Instalar dependencias
 RUN python -m venv .venv
 COPY requirements.txt ./
@@ -31,4 +28,4 @@ COPY --from=builder /app/.venv .venv/
 COPY . .
 
 # Comando corregido con FLASK_APP explícito
-CMD ["/app/.venv/bin/flask", "run", "--app", "api.chat_api:app", "--host=0.0.0.0", "--port=8080"]
+CMD ["/app/.venv/bin/flask", "run", "api.chat_api:app", "--host=0.0.0.0", "--port=8080"]
