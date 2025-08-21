@@ -16,9 +16,9 @@ from dotenv import load_dotenv
 from flask_cors import CORS
 
 # Importar módulos locales
-from conversation_history import ConversationHistory
-from feedback_system import record_feedback
-from semantic_search import generate_chatbot_response, search_products
+from lib.conversation_history import ConversationHistory
+from lib.feedback_system import record_feedback
+from lib.semantic_search import generate_chatbot_response, search_products
 
 # Configurar logging
 logging.basicConfig(
