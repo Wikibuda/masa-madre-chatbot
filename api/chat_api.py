@@ -407,7 +407,7 @@ def request_support():
         # Importar y llamar a la función de creación de ticket
         # Mover el import al interior del try para manejar errores de importación
         try:
-            from support_system import create_support_ticket
+            from lib.support_system import create_support_ticket
         except ImportError as import_error:
             logger.critical(f"❌ Módulo support_system no encontrado: {str(import_error)}")
             return jsonify({
