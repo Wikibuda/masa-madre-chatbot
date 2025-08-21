@@ -16,9 +16,9 @@ from dotenv import load_dotenv
 from flask_cors import CORS
 
 # Importar módulos locales
-from lib.conversation_history import ConversationHistory
-from lib.feedback_system import record_feedback
-from lib.semantic_search import generate_chatbot_response, search_products
+from conversation_history import ConversationHistory
+from feedback_system import record_feedback
+from semantic_search import generate_chatbot_response, search_products
 
 # Configurar logging
 logging.basicConfig(
@@ -407,7 +407,7 @@ def request_support():
         # Importar y llamar a la función de creación de ticket
         # Mover el import al interior del try para manejar errores de importación
         try:
-            from lib.support_system import create_support_ticket
+            from support_system import create_support_ticket
         except ImportError as import_error:
             logger.critical(f"❌ Módulo support_system no encontrado: {str(import_error)}")
             return jsonify({
