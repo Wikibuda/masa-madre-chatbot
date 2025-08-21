@@ -28,4 +28,4 @@ COPY --from=builder /app/.venv .venv/
 COPY . .
 
 # Comando corregido con FLASK_APP explícito
-CMD ["/app/.venv/bin/flask", "run", "api.chat_api:app", "--host=0.0.0.0", "--port=8080"]
+CMD ["/app/.venv/bin/flask", "run", "--host=0.0.0.0", "--port=8080"]
