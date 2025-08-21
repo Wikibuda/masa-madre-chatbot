@@ -6,7 +6,8 @@
 *.tmp
 
 #Desarrollo y pruebas 
-tests/*
+*tests/*
+*Copia*
 
 # Logs y archivos de diagnóstico
 *.log

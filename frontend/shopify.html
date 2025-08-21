@@ -1,68 +1,5 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🧪 Prueba del Chatbot Masa Madre</title>
-    <style>
-        body {
-            font-family: 'Helvetica Neue', Arial, sans-serif;
-            margin: 0;
-            padding: 20px;
-            background-color: #f5f5f5;
-        }
-        .test-container {
-            max-width: 800px;
-            margin: 0 auto;
-            background: white;
-            padding: 30px;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
-        h1 {
-            color: #8B4513;
-            text-align: center;
-        }
-        .instructions {
-            background-color: #f8f9fa;
-            padding: 20px;
-            border-radius: 8px;
-            margin-bottom: 30px;
-            border-left: 4px solid #8B4513;
-        }
-        .instructions h2 {
-            color: #8B4513;
-            margin-top: 0;
-        }
-        .instructions ul {
-            padding-left: 20px;
-        }
-        .instructions li {
-            margin-bottom: 10px;
-            line-height: 1.5;
-        }
-        .debug-console {
-            background-color: #000;
-            color: #00ff00;
-            padding: 15px;
-            border-radius: 5px;
-            font-family: monospace;
-            font-size: 0.9em;
-            max-height: 200px;
-            overflow-y: auto;
-            margin: 20px 0;
-        }
-        .debug-btn {
-            background-color: #8B4513;
-            color: white;
-            border: none;
-            padding: 10px 15px;
-            border-radius: 5px;
-            cursor: pointer;
-            margin: 5px;
-        }
-
-        /* --- ESTILOS DEL CHATBOT --- */
+<style>
+       /* --- ESTILOS DEL CHATBOT --- */
         #masa-madre-chatbot {
             position: fixed;
             bottom: 20px;
@@ -273,38 +210,6 @@
         }
         /* --- FIN NUEVO --- */
     </style>
-</head>
-<body>
-    <div class="test-container">
-        <h1>🧪 Prueba del Chatbot Masa Madre Monterrey</h1>
-        
-        <div class="instructions">
-            <h2>Instrucciones de Prueba</h2>
-            <ul>
-                <li><strong>Verifica el estado</strong>: El punto indica si la API está conectada</li>
-                <li><strong>Haz clic en el chatbot</strong>: Para abrir/cerrar la ventana de chat</li>
-                <li><strong>Escribe preguntas</strong>: Prueba con temas de panadería, masa madre, productos, etc.</li>
-                <li><strong>Prueba soporte humano</strong>: Usa el botón "💬 Hablar con alguien"</li>
-                <li><strong>Da feedback</strong>: Usa 👍 o 👎 después de las respuestas</li>
-                <li><strong>Verifica localStorage</strong>: Abre DevTools → Application → Local Storage</li>
-            </ul>
-            
-            <h3>Herramientas de Depuración</h3>
-            <button class="debug-btn" onclick="clearLocalStorage()">🧹 Limpiar LocalStorage</button>
-            <button class="debug-btn" onclick="forceReinit()">🔄 Reiniciar Chatbot</button>
-            
-            <div id="debug-console" class="debug-console" style="display:none;">
-                <strong>Consola de Depuración:</strong><br>
-                <span id="debug-log">Esperando eventos...</span>
-            </div>
-        </div>
-
-        <div class="test-content">
-            <h3>Contenido de prueba</h3>
-            <p>Esta es una página de prueba para el chatbot de Masa Madre Monterrey. Puedes interactuar con el chatbot que aparece en la esquina inferior derecha.</p>
-            <p>Puedes usar esta página para probar las correcciones sugeridas paso a paso.</p>
-        </div>
-    </div>
 
     <!-- CHATBOT WIDGET -->
     <div id="masa-madre-chatbot">
@@ -1108,5 +1013,3 @@
              logDebug("Script principal ejecutado. Chatbot debería estar inicializado.");
         });
     </script>
-</body>
-</html>
