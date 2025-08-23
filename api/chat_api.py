@@ -360,14 +360,13 @@ def handle_feedback():
             "message": "Error interno del servidor al registrar tu retroalimentación"
         }), 500
 
+# En chat_api.py, modificar el endpoint /api/chat/support
 @app.route('/api/chat/support', methods=['POST'])
 def request_support():
-    """Solicita soporte humano"""
     try:
         data = request.json
         logger.info(f"🆘 Solicitud de soporte recibida: {json.dumps(data) if data else 'Sin datos'}")
 
-        # Validación de datos
         if not data: 
             return jsonify({
                 "status": "error",
@@ -375,86 +374,75 @@ def request_support():
             }), 400
 
         user_id = data.get('user_id')
-        contact_info = data.get('contact_info', '').strip() # .strip() para eliminar espacios
+        contact_info = data.get('contact_info', {})  # Ahora es un objeto, no una cadena
 
         # Validaciones
-        if not user_id or sessions.get(user_id) is None: # Mejora: usar .get()
-            logger.warning(f"⚠️ Solicitud de soporte rechazada: Sesión no válida para {user_id}")
+        if not user_id or sessions.get(user_id) is None:
             return jsonify({
                 "status": "error",
-                "message": "Sesión no válida. Por favor, inicia una nueva sesión de chat."
+                "message": "Sesión no válida"
             }), 400
 
-        if not contact_info:
-            logger.warning(f"⚠️ Solicitud de soporte rechazada: Información de contacto faltante para {user_id}")
-            # --- CAMBIO CLAVE: Mensaje de error más específico ---
+        # Validar que contact_info sea un objeto con los campos requeridos
+        if not isinstance(contact_info, dict) or not all(k in contact_info for k in ['name', 'email', 'phone']):
             return jsonify({
                 "status": "error",
-                "message": "Se requiere información de contacto (correo o teléfono)"
-            }), 400 # Código 400 para datos faltantes
-            # --- FIN CAMBIO CLAVE ---
+                "message": "Información de contacto incompleta. Se requiere nombre, email y teléfono."
+            }), 400
 
         # Obtener historial completo
         conversation_history = sessions[user_id]
         full_history = conversation_history.get_full_history()
-
-        if not full_history:
-            logger.warning(f"⚠️ Solicitud de soporte: Historial vacío para {user_id}")
-            # No necesariamente un error, podría ser la primera interacción
-            # Decidir si se permite o no soporte sin historial
-            full_history = [] # Proceder con historial vacío
-
-        # Importar y llamar a la función de creación de ticket
-        # Mover el import al interior del try para manejar errores de importación
-        try:
-            from support_system import create_support_ticket
-        except ImportError as import_error:
-            logger.critical(f"❌ Módulo support_system no encontrado: {str(import_error)}")
-            return jsonify({
-                "status": "error",
-                "message": "Servicio de soporte no disponible temporalmente"
-            }), 500
 
         # Preparar datos para el ticket
         last_query = ""
         last_response = ""
         if full_history:
             last_exchange = full_history[-1]
-            last_query = last_exchange.get('query', 'No disponible')
-            last_response = last_exchange.get('response', 'No disponible')
+            last_query = last_exchange.get('query', '')
+            last_response = last_exchange.get('response', '')
 
         # Crear ticket de soporte
         try:
+            from support_system_improved import create_support_ticket
             ticket_id = create_support_ticket(
                 query=last_query,
                 response=last_response,
                 conversation_history=full_history,
                 contact_info=contact_info,
-                priority="media", # Considerar hacer esto configurable o basado en contexto
+                priority="media",
                 reason="Solicitud de soporte humano desde el widget de chat"
             )
-            logger.info(f"✅ Ticket de soporte creado para el usuario {user_id} con ID: {ticket_id}")
-            # --- CAMBIO CLAVE: Devolver el ticket_id y un mensaje con folio ---
+            
+            logger.info(f"✅ Ticket de soporte creado: {ticket_id}")
             return jsonify({
                 "status": "success",
-                "message": f"✅ Ticket de soporte creado. Tu número de folio es: **{ticket_id}**. Un representante se contactará contigo pronto a través de {contact_info}.",
-                "ticket_id": ticket_id # Devolver el ID del ticket
+                "message": f"✅ Hemos recibido tu solicitud. Tu número de folio es: {ticket_id}. Te contactaremos pronto en {contact_info['email']}.",
+                "ticket_id": ticket_id
             })
-            # --- FIN CAMBIO CLAVE ---
-
-        except Exception as ticket_error:
-            logger.error(f"❌ Error al crear ticket de soporte para {user_id}: {str(ticket_error)}", exc_info=True)
+            
+        except ValueError as e:
+            # Error de validación
+            logger.warning(f"⚠️ Error de validación: {str(e)}")
             return jsonify({
                 "status": "error",
-                "message": "Error al crear tu ticket de soporte. Por favor, inténtalo de nuevo o contacta directamente a soporte@masamadremonterrey.com"
+                "message": str(e)
+            }), 400
+            
+        except Exception as e:
+            logger.error(f"❌ Error al crear ticket: {str(e)}")
+            return jsonify({
+                "status": "error",
+                "message": "Error al procesar tu solicitud. Por favor, inténtalo de nuevo."
             }), 500
 
     except Exception as e:
-        logger.critical(f"❌ Error crítico no manejado en /api/chat/support: {str(e)}", exc_info=True)
+        logger.critical(f"❌ Error crítico: {str(e)}")
         return jsonify({
             "status": "error",
-            "message": "Error interno del servidor al procesar tu solicitud de soporte"
+            "message": "Error interno del servidor"
         }), 500
+
 
 # --- PUNTO DE ENTRADA ---
 if __name__ == "__main__":
