@@ -61,6 +61,77 @@
             cursor: pointer;
             margin: 5px;
         }
+       
+        .support-form {
+            padding: 10px;
+        }
+
+        .support-form h4 {
+            margin: 0 0 10px 0;
+            color: #8B4513;
+        }
+
+        .support-form p {
+            margin: 0 0 15px 0;
+            font-size: 0.9em;
+            color: #666;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .support-form label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            font-size: 0.9em;
+        }
+
+        .support-form input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 0.9em;
+            box-sizing: border-box;
+        }
+
+        .support-form input.error {
+            border-color: #dc3545;
+        }
+
+        .error-message {
+            color: #dc3545;
+            font-size: 0.8em;
+            margin-top: 5px;
+            min-height: 15px;
+        }
+
+        .form-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .form-buttons button {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.9em;
+        }
+
+        #support-submit {
+            background-color: #8B4513;
+            color: white;
+        }
+
+        #support-cancel {
+            background-color: #6c757d;
+            color: white;
+        }
 
         /* --- ESTILOS DEL CHATBOT --- */
         #masa-madre-chatbot {
@@ -322,7 +393,7 @@
         <div id="chatbot-body">
             <div id="chatbot-messages">
                 <div class="message bot">
-                    ¡Hola! Soy tu asistente de panadería especializado en masa madre. ¿En qué puedo ayudarte hoy?<br><br>
+                    ¡Hola! Soy tu asistente de panadería especializado en masa madre. ¿En qué puedo ayudarte hoy?<br>
                     Si necesitas hablar con alguien directamente, simplemente presiona el botón "💬 Hablar con alguien" que está abajo.
                 </div>
             </div>
@@ -449,7 +520,41 @@
                         // Establecer estado del indicador a warning/inicial
                         this.updateStatusIndicator('warning');
                     }
+                    // Ajustar tamaño inicial 
+                    this.adjustChatSize();
+                    
+                    // Escuchar cambios de tamaño de ventana
+                    window.addEventListener('resize', () => {
+                        this.adjustChatSize();
+                    });
                 },
+
+                // Nueva función para ajustar el tamaño del chat
+                adjustChatSize: function() {
+                  const windowWidth = window.innerWidth;
+                  const windowHeight = window.innerHeight;
+  
+                  // Ajustar posición y tamaño según el dispositivo
+                  if (windowWidth <= 768) {
+                    // Modo móvil
+                    this.body.style.width = '95vw';
+                    this.body.style.maxWidth = '95vw';
+                    this.body.style.maxHeight = '80vh';
+    
+                    // Ajustar posición para que no se desborde
+                    const rightPosition = Math.max(15, (windowWidth - 350) / 2);
+                    this.body.style.left = 'auto';
+                    this.body.style.right = rightPosition + 'px';
+                  } else {
+                    // Modo escritorio
+                    this.body.style.width = '350px';
+                    this.body.style.maxWidth = '350px';
+                    this.body.style.maxHeight = '70vh';
+                    this.body.style.left = 'auto';
+                    this.body.style.right = '20px';
+                  }
+                },
+                
                 
                 // Carga o crea un ID de usuario único
                 loadUserId: function() {
@@ -1057,49 +1162,195 @@
                     }
                 },
                 
-                // Solicita soporte humano
-                                // Solicita soporte humano
-                requestSupport: function() {
-                    logDebug("Intentando solicitar soporte.");
-                    
-                    // --- NUEVO: Verificar si ya se ha solicitado soporte recientemente ---
-                    // Podemos usar una variable de estado o el texto del botón para verificar
-                    if (this.supportRequestsCount >= this.maxSupportRequests) {
-                         logDebug(`Límite de solicitudes de soporte alcanzado (${this.maxSupportRequests}).`);
-                         this.addMessage("Ya has solicitado hablar con alguien recientemente. Por favor, espera a que un representante se ponga en contacto contigo o intenta de nuevo más tarde.", 'bot');
-                         // Opcional: Desactivar el botón visualmente
-                         if (this.requestSupportButton) {
-                             this.requestSupportButton.disabled = true;
-                             this.requestSupportButton.textContent = "Solicitud Enviada";
-                             this.requestSupportButton.style.backgroundColor = "#cccccc"; // Gris
-                         }
-                         return;
-                    }
-                    
-                    // --- NUEVO: Verificar si ya se creó un ticket (estado del botón) ---
-                    // Si el botón ya dice "Solicitud Enviada", asumimos que el proceso está en marcha
-                    if (this.requestSupportButton && this.requestSupportButton.disabled) {
-                         logDebug("Ya se ha solicitado soporte. El botón está desactivado.");
-                         this.addMessage("Ya he iniciado el proceso para conectarte con un representante. Un miembro de nuestro equipo se pondrá en contacto contigo pronto utilizando la información que ya tenemos.", 'bot');
-                         return;
-                    }
-                    // --- FIN NUEVO ---
+                
+                showSupportForm: function() {
+                    this.input.style.display = 'none';
+                    this.sendButton.style.display = 'none';
+                    this.requestSupportButton.style.display = 'none';
 
-                    this.addMessage(
-                        "Entiendo que prefieres hablar con alguien directamente. " +
-                        "Por favor, ¿podrías dejarme tu Nombre, correo electrónico o número de teléfono " +
-                        "para que un representante se pueda poner en contacto contigo?",
-                        'bot'
-                    );
+                    const formHtml = `
+                        <div class="support-form">
+                            <h4>💬 Contactar con soporte</h4>
+                            <p>Por favor completa tus datos y nos contactaremos contigo pronto.</p>
+                            
+                            <form id="support-contact-form">
+                                <input type="text" name="website" style="display:none;" tabindex="-1" autocomplete="off">
+                                
+                                <div class="form-group">
+                                    <label for="support-name">Nombre completo *</label>
+                                    <input type="text" id="support-name" name="name" required 
+                                           placeholder="Tu nombre completo">
+                                    <div class="error-message" id="name-error"></div>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="support-email">Email *</label>
+                                    <input type="email" id="support-email" name="email" required 
+                                           placeholder="tu@email.com">
+                                    <div class="error-message" id="email-error"></div>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="support-phone">Teléfono *</label>
+                                    <input type="tel" id="support-phone" name="phone" required 
+                                           placeholder="1234567890">
+                                    <div class="error-message" id="phone-error"></div>
+                                </div>
+                                
+                                <div class="form-buttons">
+                                    <button type="submit" id="support-submit">Enviar solicitud</button>
+                                    <button type="button" id="support-cancel">Cancelar</button>
+                                </div>
+                            </form>
+                        </div>
+                    `;
+
+                    const formContainer = document.createElement('div');
+                    formContainer.className = 'message bot';
+                    formContainer.innerHTML = formHtml;
+                    this.messages.appendChild(formContainer);
+
+                    document.getElementById('support-contact-form').addEventListener('submit', this.handleSupportFormSubmit.bind(this));
+                    document.getElementById('support-cancel').addEventListener('click', this.hideSupportForm.bind(this));
                     
-                    this.currentMode = 'awaitingSupport';
-                    logDebug("Modo cambiado a 'awaitingSupport'");
+                    setTimeout(() => {
+                        document.getElementById('support-name').focus();
+                    }, 100);
+                },
+
+                hideSupportForm: function() {
+                    const formContainer = this.messages.querySelector('.support-form');
+                    if (formContainer) {
+                        formContainer.remove();
+                    }
+
+                    this.input.style.display = 'block';
+                    this.sendButton.style.display = 'block';
+                    this.requestSupportButton.style.display = 'block';
+                    this.input.focus();
+                },
+
+                handleSupportFormSubmit: function(e) {
+                    e.preventDefault();
                     
-                    // --- NUEVO: Incrementar contador ---
+                    const formData = {
+                        name: document.getElementById('support-name').value.trim(),
+                        email: document.getElementById('support-email').value.trim(),
+                        phone: document.getElementById('support-phone').value.trim(),
+                        honeypot: document.querySelector('input[name="website"]').value
+                    };
+                    
+                    const nameValid = this.validateField('support-name', this.validateName);
+                    const emailValid = this.validateField('support-email', this.validateEmail);
+                    const phoneValid = this.validateField('support-phone', this.validatePhone);
+                    
+                    if (!nameValid || !emailValid || !phoneValid) {
+                        this.addMessage('Por favor corrige los errores en el formulario.', 'bot');
+                        return;
+                    }
+                    
+                    if (formData.honeypot) {
+                        this.addMessage('Solicitud procesada. Te contactaremos pronto.', 'bot');
+                        this.hideSupportForm();
+                        return;
+                    }
+                    
+                    this.sendSupportRequest(formData);
+                },
+
+                validateField: function(fieldId, validator) {
+                    const field = document.getElementById(fieldId);
+                    const errorElement = document.getElementById(`${fieldId}-error`);
+                    const value = field.value.trim();
+                    
+                    const errors = validator(value);
+                    if (errors.length > 0) {
+                        errorElement.textContent = errors[0];
+                        field.classList.add('error');
+                        return false;
+                    } else {
+                        errorElement.textContent = '';
+                        field.classList.remove('error');
+                        return true;
+                    }
+                },
+
+                validateName: function(name) {
+                    if (!name) return ["El nombre es requerido"];
+                    if (name.length < 2) return ["El nombre debe tener al menos 2 caracteres"];
+                    if (name.length > 100) return ["El nombre es demasiado largo"];
+                    return [];
+                },
+
+                validateEmail: function(email) {
+                    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                    if (!email) return ["El email es requerido"];
+                    if (!emailRegex.test(email)) return ["Por favor ingresa un email válido"];
+                    return [];
+                },
+
+                validatePhone: function(phone) {
+                    const cleaned = phone.replace(/[\s\-\(\)]/g, '');
+                    if (!cleaned) return ["El teléfono es requerido"];
+                    if (!/^\d+$/.test(cleaned)) return ["El teléfono solo debe contener números"];
+                    if (cleaned.length < 10) return ["El teléfono debe tener al menos 10 dígitos"];
+                    if (cleaned.length > 15) return ["El teléfono es demasiado largo"];
+                    return [];
+                },
+
+                sendSupportRequest: function(formData) {
+                    const loadingId = 'support_loading_' + Date.now();
+                    this.addMessage('Enviando tu solicitud...', 'bot', loadingId);
+                    
+                    fetch(`${API_URL}/api/chat/support`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            user_id: this.userId,
+                            contact_info: {
+                                name: formData.name,
+                                email: formData.email,
+                                phone: formData.phone
+                            }
+                        })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        this.removeElement(loadingId);
+                        
+                        if (data.status === 'success') {
+                            this.addMessage(data.message, 'bot');
+                            this.hideSupportForm();
+                            
+                            if (this.requestSupportButton) {
+                                this.requestSupportButton.disabled = true;
+                                this.requestSupportButton.textContent = "✅ Solicitud Enviada";
+                                this.requestSupportButton.style.backgroundColor = "#28a745";
+                            }
+                        } else {
+                            this.addMessage(data.message || 'Error al enviar la solicitud. Intenta nuevamente.', 'bot');
+                        }
+                    })
+                    .catch(error => {
+                        this.removeElement(loadingId);
+                        this.addMessage('Error de conexión. Intenta nuevamente.', 'bot');
+                        console.error('Error sending support request:', error);
+                    });
+                },
+
+                requestSupport: function() {
+                    logDebug("Solicitando soporte humano - Mostrando formulario");
+                    
+                    if (this.supportRequestsCount >= this.maxSupportRequests) {
+                        this.addMessage("Ya has solicitado hablar con alguien. Te contactaremos pronto.", 'bot');
+                        return;
+                    }
+                    
+                    this.showSupportForm();
                     this.supportRequestsCount++;
-                    logDebug(`Solicitud de soporte #${this.supportRequestsCount} realizada.`);
-                    // --- FIN NUEVO ---
-                }
+                } 
+  
+                
             };
             
             // Inicializar el chatbot
