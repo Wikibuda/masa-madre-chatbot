@@ -63,38 +63,52 @@
         }
        
         .support-form {
-            padding: 10px;
+            padding: 2px;
         }
 
         .support-form h4 {
-            margin: 0 0 10px 0;
+            margin: 0 0 2px 0;
             color: #8B4513;
+            font-size: 13px;
+            font-weight: bold;
+            line-height: 1.2;
         }
 
         .support-form p {
-            margin: 0 0 15px 0;
-            font-size: 0.9em;
+            margin: 0 0 5px 0;
+            font-size: 11px;
             color: #666;
+            line-height: 1.2;
         }
 
         .form-group {
-            margin-bottom: 15px;
+            margin-bottom: 5px;
         }
 
         .support-form label {
             display: block;
-            margin-bottom: 5px;
+            margin-bottom: 1px;
             font-weight: bold;
-            font-size: 0.9em;
+            font-size: 11px;
+            color: #555;
+            line-height: 1.2;
         }
 
         .support-form input {
             width: 100%;
-            padding: 10px;
+            padding: 4px 6px;
             border: 1px solid #ddd;
-            border-radius: 5px;
-            font-size: 0.9em;
+            border-radius: 3px;
+            font-size: 12px;
             box-sizing: border-box;
+            line-height: 1.2;
+            margin: 0;
+        }
+
+        .support-form input:focus {
+            outline: none;
+            border-color: #8B4513;
+            box-shadow: 0 0 0 1px rgba(139, 69, 19, 0.2);
         }
 
         .support-form input.error {
@@ -103,24 +117,28 @@
 
         .error-message {
             color: #dc3545;
-            font-size: 0.8em;
-            margin-top: 5px;
-            min-height: 15px;
+            font-size: 10px;
+            margin-top: 1px;
+            min-height: 10px;
+            display: block;
+            line-height: 1.1;
         }
 
         .form-buttons {
             display: flex;
-            gap: 10px;
-            margin-top: 20px;
+            gap: 5px;
+            margin-top: 8px;
         }
 
         .form-buttons button {
             flex: 1;
-            padding: 10px;
+            padding: 5px;
             border: none;
-            border-radius: 5px;
+            border-radius: 3px;
             cursor: pointer;
-            font-size: 0.9em;
+            font-size: 11px;
+            font-weight: bold;
+            line-height: 1.2;
         }
 
         #support-submit {
@@ -128,9 +146,22 @@
             color: white;
         }
 
+        #support-submit:hover {
+            background-color: #7a3c10;
+        }
+
         #support-cancel {
             background-color: #6c757d;
             color: white;
+        }
+
+        #support-cancel:hover {
+            background-color: #5a6268;
+        }
+        /* Asegurar que el contenedor del mensaje no agregue espacio adicional */
+        .message.bot .support-form {
+            margin: 0;
+            padding: 0;
         }
 
         /* --- ESTILOS DEL CHATBOT --- */
@@ -1171,7 +1202,7 @@
                     const formHtml = `
                         <div class="support-form">
                             <h4>💬 Contactar con soporte</h4>
-                            <p>Por favor completa tus datos y nos contactaremos contigo pronto.</p>
+                            <p>Completa tus datos y te contactaremos pronto.</p>
                             
                             <form id="support-contact-form">
                                 <input type="text" name="website" style="display:none;" tabindex="-1" autocomplete="off">
@@ -1198,7 +1229,7 @@
                                 </div>
                                 
                                 <div class="form-buttons">
-                                    <button type="submit" id="support-submit">Enviar solicitud</button>
+                                    <button type="submit" id="support-submit">Enviar</button>
                                     <button type="button" id="support-cancel">Cancelar</button>
                                 </div>
                             </form>
@@ -1210,15 +1241,26 @@
                     formContainer.innerHTML = formHtml;
                     this.messages.appendChild(formContainer);
 
-                    document.getElementById('support-contact-form').addEventListener('submit', this.handleSupportFormSubmit.bind(this));
-                    document.getElementById('support-cancel').addEventListener('click', this.hideSupportForm.bind(this));
-                    
                     setTimeout(() => {
-                        document.getElementById('support-name').focus();
+                        const form = document.getElementById('support-contact-form');
+                        const cancelBtn = document.getElementById('support-cancel');
+                        
+                        if (form) {
+                            form.addEventListener('submit', this.handleSupportFormSubmit.bind(this));
+                        }
+                        
+                        if (cancelBtn) {
+                            cancelBtn.addEventListener('click', this.hideSupportForm.bind(this));
+                        }
+                        
+                        const nameInput = document.getElementById('support-name');
+                        if (nameInput) {
+                            nameInput.focus();
+                        }
                     }, 100);
                 },
 
-                hideSupportForm: function() {
+                hideSupportForm: function(showWelcomeMessage = true) {
                     const formContainer = this.messages.querySelector('.support-form');
                     if (formContainer) {
                         formContainer.remove();
@@ -1227,6 +1269,12 @@
                     this.input.style.display = 'block';
                     this.sendButton.style.display = 'block';
                     this.requestSupportButton.style.display = 'block';
+                    
+                    // Solo mostrar mensaje de bienvenida si se solicita explícitamente
+                    if (showWelcomeMessage) {
+                        this.addMessage("¡Hola! Soy tu asistente de panadería especializado en masa madre. ¿En qué puedo ayudarte hoy? Si necesitas hablar con alguien directamente, simplemente presiona el botón '💬 Hablar con alguien' que está abajo.", 'bot');
+                    }
+                    
                     this.input.focus();
                 },
 
@@ -1260,16 +1308,25 @@
 
                 validateField: function(fieldId, validator) {
                     const field = document.getElementById(fieldId);
+                    if (!field) {
+                        console.error(`Campo no encontrado: ${fieldId}`);
+                        return false;
+                    }
+                    
                     const errorElement = document.getElementById(`${fieldId}-error`);
                     const value = field.value.trim();
                     
                     const errors = validator(value);
                     if (errors.length > 0) {
-                        errorElement.textContent = errors[0];
+                        if (errorElement) {
+                            errorElement.textContent = errors[0];
+                        }
                         field.classList.add('error');
                         return false;
                     } else {
-                        errorElement.textContent = '';
+                        if (errorElement) {
+                            errorElement.textContent = '';
+                        }
                         field.classList.remove('error');
                         return true;
                     }
@@ -1320,7 +1377,7 @@
                         
                         if (data.status === 'success') {
                             this.addMessage(data.message, 'bot');
-                            this.hideSupportForm();
+                            this.hideSupportForm(false);
                             
                             if (this.requestSupportButton) {
                                 this.requestSupportButton.disabled = true;
@@ -1348,7 +1405,7 @@
                     
                     this.showSupportForm();
                     this.supportRequestsCount++;
-                } 
+                }
   
                 
             };
