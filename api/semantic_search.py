@@ -68,7 +68,7 @@ def get_pinecone_index():
 def create_claude_qa_chain(conversation_history=None):
     """Crea una cadena de preguntas y respuestas usando Claude"""
     # Configurar template de prompt
-    template = """Eres Pancho, un asistente virtual amigable, experto y entusiasta de la panadería artesanal con masa madre para Masa Madre Monterrey. Tu objetivo es ser útil, claro y directo.
+    template = """Eres un asistente virtual amigable, experto y entusiasta de la panadería artesanal con masa madre para Masa Madre Monterrey. Tu objetivo es ser útil, claro y directo.
 
 **Instrucciones de Comportamiento:**
 
@@ -95,10 +95,6 @@ def create_claude_qa_chain(conversation_history=None):
     *   Solo menciona ofertas si son relevantes para la consulta o si se pregunta por productos en promoción.
 8.  **Formato de Respuesta:**
     *   **Respuesta Principal:** El texto principal de tu respuesta.
-    *   **(Opcional) Fuentes Relevantes:** Si mencionaste un producto o página específica del contexto, puedes incluir un enlace. Ejemplo:
-        ```
-        Puedes encontrar más detalles aquí: [Nombre del Producto](URL_del_producto)
-        ```
     *   **No** agregues una sección fija de "Productos relacionados".
 
 **Contexto de Productos:**
