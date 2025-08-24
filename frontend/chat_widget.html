@@ -1195,6 +1195,10 @@
                 
                 
                 showSupportForm: function() {
+                    // Limpiar mensajes existentes y ajustar altura
+                    this.messages.innerHTML = '';
+                    this.messages.style.maxHeight = '300px'; // Limitar altura máxim
+
                     this.input.style.display = 'none';
                     this.sendButton.style.display = 'none';
                     this.requestSupportButton.style.display = 'none';
@@ -1261,6 +1265,9 @@
                 },
 
                 hideSupportForm: function(showWelcomeMessage = true) {
+                    // Limpiar mensajes y restaurar altura
+                    this.messages.innerHTML = '';
+                    this.messages.style.maxHeight = ''; // Restaurar altura por defecto
                     const formContainer = this.messages.querySelector('.support-form');
                     if (formContainer) {
                         formContainer.remove();
