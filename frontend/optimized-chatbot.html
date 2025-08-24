@@ -1,0 +1,1412 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🧪 Chatbot Masa Madre - Optimizado</title>
+    <style>
+        body {
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .test-container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #8B4513;
+            text-align: center;
+        }
+        .instructions {
+            background-color: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+            border-left: 4px solid #8B4513;
+        }
+        .instructions h2 {
+            color: #8B4513;
+            margin-top: 0;
+        }
+        .instructions ul {
+            padding-left: 20px;
+        }
+        .instructions li {
+            margin-bottom: 10px;
+            line-height: 1.5;
+        }
+        .debug-console {
+            background-color: #000;
+            color: #00ff00;
+            padding: 15px;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 0.9em;
+            max-height: 200px;
+            overflow-y: auto;
+            margin: 20px 0;
+        }
+        .debug-btn {
+            background-color: #8B4513;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+       
+        /* ===== FORMULARIO DE CONTACTO OPTIMIZADO ===== */
+        .support-form {
+            padding: 8px;
+            margin: 0;
+            background-color: #ffffff;
+            border-radius: 8px;
+            border: 1px solid #e9ecef;
+        }
+
+        .support-form h4 {
+            margin: 0 0 6px 0;
+            color: #8B4513;
+            font-size: 14px;
+            font-weight: 600;
+            line-height: 1.3;
+            text-align: center;
+        }
+
+        .support-form p {
+            margin: 0 0 10px 0;
+            font-size: 12px;
+            color: #6c757d;
+            line-height: 1.3;
+            text-align: center;
+        }
+
+        .form-group {
+            margin-bottom: 8px;
+            position: relative;
+        }
+
+        .support-form label {
+            display: block;
+            margin-bottom: 2px;
+            font-weight: 500;
+            font-size: 11px;
+            color: #495057;
+            line-height: 1.2;
+        }
+
+        .support-form input {
+            width: 100%;
+            padding: 6px 8px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            font-size: 12px;
+            box-sizing: border-box;
+            line-height: 1.3;
+            margin: 0;
+            transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+            background-color: #fff;
+        }
+
+        .support-form input:focus {
+            outline: none;
+            border-color: #8B4513;
+            box-shadow: 0 0 0 2px rgba(139, 69, 19, 0.25);
+        }
+
+        .support-form input.error {
+            border-color: #dc3545;
+            box-shadow: 0 0 0 2px rgba(220, 53, 69, 0.25);
+        }
+
+        .support-form input::placeholder {
+            color: #6c757d;
+            opacity: 0.7;
+        }
+
+        .error-message {
+            color: #dc3545;
+            font-size: 10px;
+            margin-top: 2px;
+            min-height: 12px;
+            display: block;
+            line-height: 1.2;
+            font-weight: 500;
+        }
+
+        .form-buttons {
+            display: flex;
+            gap: 6px;
+            margin-top: 12px;
+            justify-content: center;
+        }
+
+        .form-buttons button {
+            flex: 1;
+            padding: 8px 12px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 600;
+            line-height: 1.2;
+            transition: all 0.2s ease;
+            min-height: 32px;
+        }
+
+        #support-submit {
+            background-color: #8B4513;
+            color: white;
+        }
+
+        #support-submit:hover:not(:disabled) {
+            background-color: #7a3c10;
+            transform: translateY(-1px);
+        }
+
+        #support-submit:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+
+        #support-cancel {
+            background-color: #6c757d;
+            color: white;
+        }
+
+        #support-cancel:hover {
+            background-color: #5a6268;
+            transform: translateY(-1px);
+        }
+
+        /* Honeypot field - completamente oculto */
+        input[name="website"] {
+            position: absolute !important;
+            left: -9999px !important;
+            width: 1px !important;
+            height: 1px !important;
+            opacity: 0 !important;
+            pointer-events: none !important;
+        }
+
+        /* Loading state para el formulario */
+        .form-loading {
+            opacity: 0.6;
+            pointer-events: none;
+        }
+
+        .form-loading .form-buttons button {
+            cursor: not-allowed;
+        }
+
+        /* Success state */
+        .form-success {
+            background-color: #d4edda;
+            border-color: #c3e6cb;
+        }
+
+        .form-success .support-form h4 {
+            color: #155724;
+        }
+
+        /* ===== FIN FORMULARIO OPTIMIZADO ===== */
+
+        /* Asegurar que el contenedor del mensaje no agregue espacio adicional */
+        .message.bot .support-form {
+            margin: 0;
+        }
+
+        /* --- ESTILOS DEL CHATBOT --- */
+        #masa-madre-chatbot {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 10000;
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+        }
+        #chatbot-header {
+            background-color: #8B4513;
+            color: white;
+            padding: 12px 15px;
+            border-radius: 50px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.15);
+        }
+        #chatbot-body {
+            display: none;
+            background-color: white;
+            border: 1px solid #ddd;
+            border-radius: 12px;
+            width: 350px;
+            max-height: 500px;
+            overflow: hidden;
+            box-shadow: 0 2px 20px rgba(0,0,0,0.15);
+            margin-top: 10px;
+            flex-direction: column;
+        }
+        #chatbot-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            max-height: 350px;
+        }
+        .message.user {
+            background-color: #8B4513;
+            color: white;
+            padding: 10px 15px;
+            border-radius: 18px;
+            max-width: 80%;
+            margin-left: auto;
+            border-bottom-right-radius: 4px;
+        }
+        .message.bot {
+            background-color: #f1f1f1;
+            color: #333;
+            padding: 10px 15px;
+            border-radius: 18px;
+            max-width: 80%;
+            margin-right: auto;
+            border-bottom-left-radius: 4px;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+        .product-suggestion {
+            background-color: #fff9f9;
+            border: 1px solid #ffe0e0;
+            border-radius: 8px;
+            padding: 10px;
+            margin-top: 8px;
+        }
+        .product-title {
+            font-weight: bold;
+            color: #8B4513;
+            margin-bottom: 5px;
+        }
+        .product-title a {
+            color: #8B4513;
+            text-decoration: none;
+        }
+        .product-title a:hover {
+            text-decoration: underline;
+        }
+        .product-price {
+            color: #555;
+            font-size: 0.9em;
+        }
+        .loading-dots {
+            display: inline-block;
+            width: 40px;
+        }
+        .loading-dots span {
+            height: 8px;
+            width: 8px;
+            background-color: #888;
+            border-radius: 50%;
+            display: inline-block;
+            margin: 0 1px;
+            animation: loading 1.4s infinite ease-in-out both;
+        }
+        .loading-dots span:nth-child(1) { animation-delay: -0.32s; }
+        .loading-dots span:nth-child(2) { animation-delay: -0.16s; }
+        @keyframes loading {
+            0%, 80%, 100% { transform: scale(0); }
+            40% { transform: scale(1); }
+        }
+        #chatbot-input-container {
+            padding: 10px;
+            border-top: 1px solid #eee;
+            display: flex;
+            gap: 10px;
+        }
+        #chatbot-input {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 20px;
+            outline: none;
+        }
+        #chatbot-send {
+            background-color: #8B4513;
+            color: white;
+            border: none;
+            padding: 0 15px;
+            border-radius: 20px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        #chatbot-support-button-container {
+            padding: 5px 10px;
+            border-top: 1px solid #eee;
+            display: flex;
+            justify-content: center;
+        }
+        #chatbot-request-support {
+            background-color: #6c757d;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 15px;
+            cursor: pointer;
+            font-size: 0.8em;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            transition: all 0.3s ease;
+        }
+        #chatbot-request-support:hover:not(:disabled) {
+            background-color: #5a6268;
+        }
+        #chatbot-request-support:disabled {
+            background-color: #28a745;
+            cursor: not-allowed;
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(108, 117, 125, 0.7); }
+            70% { transform: scale(1.05); box-shadow: 0 0 0 10px rgba(108, 117, 125, 0); }
+            100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(108, 117, 125, 0); }
+        }
+        .pulse-animation {
+            animation: pulse 1s 2;
+        }
+        #chatbot-footer {
+            padding: 10px;
+            border-top: 1px solid #eee;
+            display: none;
+        }
+        #chatbot-footer > div {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.85em;
+            color: #666;
+        }
+        .feedback-btn {
+            cursor: pointer;
+            margin-left: 8px;
+            padding: 2px 5px;
+            border-radius: 3px;
+        }
+        .feedback-btn:hover:not(:disabled) {
+            background-color: #e9ecef;
+        }
+        .feedback-btn:disabled {
+            cursor: not-allowed;
+            opacity: 0.5;
+        }
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+        .status-loading {
+            background-color: #ffeb3b;
+        }
+        .status-error {
+            background-color: #f44336;
+        }
+        .status-ready {
+            background-color: #4caf50;
+        }
+        .status-warning {
+            background-color: #ff9800;
+        }
+
+        /* Responsive design mejorado */
+        @media (max-width: 768px) {
+            #masa-madre-chatbot {
+                bottom: 10px;
+                right: 10px;
+                left: 10px;
+                width: calc(100% - 20px);
+            }
+            
+            #chatbot-body {
+                width: 100%;
+                max-width: 100%;
+                height: 80vh;
+                max-height: 80vh;
+            }
+            
+            .support-form {
+                padding: 10px;
+            }
+            
+            .support-form input {
+                padding: 8px 10px;
+                font-size: 14px;
+            }
+            
+            .form-buttons button {
+                padding: 10px 15px;
+                font-size: 14px;
+                min-height: 40px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🧪 Chatbot Masa Madre - Formulario Optimizado</h1>
+        
+        <div class="instructions">
+            <h2>✅ Mejoras Implementadas</h2>
+            <ul>
+                <li><strong>✅ Espaciado corregido:</strong> Eliminé márgenes excesivos entre campos</li>
+                <li><strong>✅ Validación robusta:</strong> Email, teléfono y nombre con feedback visual</li>
+                <li><strong>✅ Protección anti-spam:</strong> Campo honeypot invisible implementado</li>
+                <li><strong>✅ UX mejorada:</strong> Estados de carga, confirmación y errores</li>
+                <li><strong>✅ Responsive:</strong> Adaptable a móviles y tablets</li>
+                <li><strong>✅ Accesibilidad:</strong> Labels apropiados y navegación por teclado</li>
+            </ul>
+            
+            <h3>🧪 Prueba el formulario</h3>
+            <p>1. Haz clic en "¿Necesitas ayuda?" → 2. Presiona "💬 Hablar con alguien" → 3. Completa el formulario</p>
+            
+            <h3>Herramientas de Depuración</h3>
+            <button class="debug-btn" onclick="clearLocalStorage()">🧹 Limpiar LocalStorage</button>
+            <button class="debug-btn" onclick="forceReinit()">🔄 Reiniciar Chatbot</button>
+            
+            <div id="debug-console" class="debug-console" style="display:none;">
+                <strong>Consola de Depuración:</strong><br>
+                <span id="debug-log">Esperando eventos...</span>
+            </div>
+        </div>
+
+        <div class="test-content">
+            <h3>Contenido de prueba</h3>
+            <p>Esta es una página de prueba para el chatbot optimizado de Masa Madre Monterrey. El formulario de contacto ahora tiene:</p>
+            <ul>
+                <li>Espaciado compacto y profesional</li>
+                <li>Validación en tiempo real</li>
+                <li>Protección contra spam</li>
+                <li>Mejor experiencia de usuario</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- CHATBOT WIDGET -->
+    <div id="masa-madre-chatbot">
+        <div id="chatbot-header">
+            <div style="display: flex; align-items: center;">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="margin-right: 8px;">
+                    <path d="M20 2H4C2.9 2 2 2.9 2 4V16C2 17.1 2.9 18 4 18H9L12 21L15 18H20C21.1 18 22 17.1 22 16V4C22 2.9 21.1 2 20 2Z" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <span>¿Necesitas ayuda?</span>
+            </div>
+            <div id="chatbot-status" class="status-dot status-warning"></div>
+        </div>
+        <div id="chatbot-body">
+            <div id="chatbot-messages">
+                <div class="message bot">
+                    ¡Hola! Soy tu asistente de panadería especializado en masa madre. ¿En qué puedo ayudarte hoy?<br>
+                    Si necesitas hablar con alguien directamente, simplemente presiona el botón "💬 Hablar con alguien" que está abajo.
+                </div>
+            </div>
+            <div id="chatbot-input-container">
+                <input type="text" id="chatbot-input" placeholder="Escribe tu pregunta...">
+                <button id="chatbot-send">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M22 2L11 13" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M22 2L15 22L11 13L2 9L22 2Z" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </button>
+            </div>
+            <div id="chatbot-support-button-container">
+                <button id="chatbot-request-support">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M20 2H4C2.9 2 2 2.9 2 4V16C2 17.1 2.9 18 4 18H9L12 21L15 18H20C21.1 18 22 17.1 22 16V4C22 2.9 21.1 2 20 2Z" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    💬 Hablar con alguien
+                </button>
+            </div>
+            <div id="chatbot-footer">
+                <div>
+                    <span>¿Te fue útil esta respuesta?</span>
+                    <div>
+                        <span class="feedback-btn" id="feedback-thumbs-up" data-rating="5">👍</span>
+                        <span class="feedback-btn" id="feedback-thumbs-down" data-rating="1">👎</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Configuración de la API
+        const API_URL = 'https://masa-madre-chatbot-api.onrender.com';
+
+        // Funciones de depuración
+        function logDebug(message) {
+            const consoleElement = document.getElementById('debug-log');
+            const timestamp = new Date().toLocaleTimeString();
+            if (consoleElement) {
+                consoleElement.innerHTML += `<br>[${timestamp}] ${message}`;
+                consoleElement.scrollTop = consoleElement.scrollHeight;
+            }
+            console.log(`[DEBUG] ${message}`);
+        }
+
+        function clearLocalStorage() {
+            localStorage.removeItem('chatbotOpen');
+            localStorage.removeItem('masaMadreChatUserId');
+            logDebug("LocalStorage limpiado. Recarga la página para reiniciar.");
+            alert("LocalStorage limpiado. Por favor, recarga la página.");
+        }
+
+        function forceReinit() {
+            if (typeof window.chatbot !== 'undefined' && window.chatbot && typeof window.chatbot.init === 'function') {
+                logDebug("Reiniciando chatbot...");
+                window.chatbot.isChatOpen = false;
+                window.chatbot.body.style.display = 'none';
+                localStorage.setItem('chatbotOpen', 'false');
+                window.chatbot.init();
+                logDebug("Chatbot reiniciado.");
+            } else {
+                logDebug("Objeto chatbot no encontrado o no inicializado.");
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            logDebug("DOM cargado. Iniciando chatbot optimizado...");
+            
+            window.chatbot = {
+                header: document.getElementById('chatbot-header'),
+                body: document.getElementById('chatbot-body'),
+                messages: document.getElementById('chatbot-messages'),
+                input: document.getElementById('chatbot-input'),
+                sendButton: document.getElementById('chatbot-send'),
+                feedbackThumbsUp: document.getElementById('feedback-thumbs-up'),
+                feedbackThumbsDown: document.getElementById('feedback-thumbs-down'),
+                requestSupportButton: document.getElementById('chatbot-request-support'),
+                footer: document.getElementById('chatbot-footer'),
+                
+                // Estado del chatbot
+                userId: null,
+                isChatOpen: localStorage.getItem('chatbotOpen') === 'true',
+                isProcessing: false,
+                lastResponse: null,
+                chatSessionInitialized: false,
+                currentMode: 'normal',
+                supportRequestsCount: 0,
+                maxSupportRequests: 2,
+                feedbackSubmitted: false,
+                isInitializingSession: false,
+                initializationPromise: null,
+                
+                init: function() {
+                    logDebug(`Iniciando chatbot optimizado. Estado: ${this.isChatOpen}`);
+                    this.loadUserId();
+                    this.setupEventListeners();
+                    
+                    if (this.isChatOpen) {
+                        this.body.style.display = 'flex';
+                        this.initializeChatSessionIfNeeded();
+                    } else {
+                        this.body.style.display = 'none';
+                        this.updateStatusIndicator('warning');
+                    }
+                    
+                    this.adjustChatSize();
+                    window.addEventListener('resize', () => this.adjustChatSize());
+                },
+
+                adjustChatSize: function() {
+                    const windowWidth = window.innerWidth;
+                    
+                    if (windowWidth <= 768) {
+                        this.body.style.width = '95vw';
+                        this.body.style.maxWidth = '95vw';
+                        this.body.style.maxHeight = '80vh';
+                        
+                        const rightPosition = Math.max(15, (windowWidth - 350) / 2);
+                        this.body.style.left = 'auto';
+                        this.body.style.right = rightPosition + 'px';
+                    } else {
+                        this.body.style.width = '350px';
+                        this.body.style.maxWidth = '350px';
+                        this.body.style.maxHeight = '70vh';
+                        this.body.style.left = 'auto';
+                        this.body.style.right = '20px';
+                    }
+                },
+                
+                loadUserId: function() {
+                    let userId = localStorage.getItem('masaMadreChatUserId');
+                    if (!userId) {
+                        userId = 'web_' + Math.random().toString(36).substr(2, 9) + '_' + Date.now();
+                        localStorage.setItem('masaMadreChatUserId', userId);
+                        logDebug(`Nuevo userId generado: ${userId}`);
+                    }
+                    this.userId = userId;
+                },
+                
+                updateStatusIndicator: function(status) {
+                    const statusDot = document.getElementById('chatbot-status');
+                    if (!statusDot) return;
+
+                    statusDot.classList.remove('status-loading', 'status-error', 'status-ready', 'status-warning');
+
+                    switch (status) {
+                        case 'loading':
+                            statusDot.classList.add('status-loading');
+                            statusDot.title = "Conectando...";
+                            break;
+                        case 'error':
+                            statusDot.classList.add('status-error');
+                            statusDot.title = "Error de conexión";
+                            break;
+                        case 'ready':
+                            statusDot.classList.add('status-ready');
+                            statusDot.title = "Conectado";
+                            break;
+                        case 'warning':
+                        default:
+                            statusDot.classList.add('status-warning');
+                            statusDot.title = "Verificando conexión...";
+                            break;
+                    }
+                },
+                
+                setupEventListeners: function() {
+                    logDebug("Configurando Event Listeners optimizados...");
+                    
+                    this.header.addEventListener('click', this.toggleChat.bind(this));
+                    this.sendButton.addEventListener('click', this.sendMessage.bind(this));
+                    
+                    this.input.addEventListener('keypress', (e) => {
+                        if (e.key === 'Enter') {
+                            this.sendMessage();
+                        }
+                    });
+                    
+                    if (this.requestSupportButton) {
+                        this.requestSupportButton.addEventListener('click', () => {
+                            logDebug("Botón 'Hablar con alguien' presionado.");
+                            this.requestSupport();
+                        });
+                    }
+                    
+                    if (this.feedbackThumbsUp) {
+                        this.feedbackThumbsUp.addEventListener('click', (e) => {
+                            if (this.feedbackSubmitted) return;
+                            const rating = parseInt(e.target.getAttribute('data-rating'));
+                            this.submitFeedback(rating);
+                            this.feedbackSubmitted = true;
+                            this.disableFeedbackButtons();
+                        });
+                    }
+                    
+                    if (this.feedbackThumbsDown) {
+                        this.feedbackThumbsDown.addEventListener('click', (e) => {
+                            if (this.feedbackSubmitted) return;
+                            const rating = parseInt(e.target.getAttribute('data-rating'));
+                            this.submitFeedback(rating);
+                            this.feedbackSubmitted = true;
+                            this.disableFeedbackButtons();
+                        });
+                    }
+                },
+                
+                checkApiHealth: function() {
+                    logDebug(`Verificando API: ${API_URL}/api/health`);
+                    this.updateStatusIndicator('loading');
+
+                    return fetch(`${API_URL}/api/health`)
+                        .then(response => {
+                            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                            return response.json();
+                        })
+                        .then(data => {
+                            if (data.status === 'healthy') {
+                                this.updateStatusIndicator('ready');
+                                return true;
+                            } else {
+                                this.updateStatusIndicator('warning');
+                                return false;
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Error checking API status:', error);
+                            this.updateStatusIndicator('error');
+                            return false;
+                        });
+                },
+                
+                toggleChat: function() {
+                    this.isChatOpen = !this.isChatOpen;
+                    this.body.style.display = this.isChatOpen ? 'flex' : 'none';
+                    localStorage.setItem('chatbotOpen', this.isChatOpen);
+                    
+                    if (this.isChatOpen) {
+                        this.initializeChatSessionIfNeeded();
+                    }
+                },
+                
+                initializeChatSessionIfNeeded: function() {
+                    if (this.chatSessionInitialized || this.isInitializingSession) {
+                        return this.initializationPromise || Promise.resolve();
+                    }
+
+                    this.isInitializingSession = true;
+                    this.updateStatusIndicator('loading');
+
+                    this.initializationPromise = this.initializeChatSession()
+                        .then(success => {
+                            this.isInitializingSession = false;
+                            if (success) {
+                                this.chatSessionInitialized = true;
+                                this.updateStatusIndicator('ready');
+                            } else {
+                                this.updateStatusIndicator('error');
+                            }
+                            return success;
+                        })
+                        .catch(error => {
+                            this.isInitializingSession = false;
+                            this.updateStatusIndicator('error');
+                            console.error("Error en inicialización:", error);
+                            this.addMessage('Lo siento, no se pudo establecer la conexión. Por favor, intenta de nuevo.', 'bot');
+                            return false;
+                        });
+
+                    return this.initializationPromise;
+                },
+
+                initializeChatSession: function() {
+                    logDebug(`Iniciando sesión con userId: ${this.userId}`);
+                    
+                    return this.checkApiHealth().then(isApiHealthy => {
+                        if (!isApiHealthy) {
+                            this.addMessage('El servicio de chat no está disponible temporalmente. Por favor, inténtalo de nuevo más tarde.', 'bot');
+                            return false;
+                        }
+
+                        return fetch(`${API_URL}/api/chat/init`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ user_id: this.userId })
+                        })
+                        .then(response => {
+                            if (!response.ok) {
+                                return response.json().then(err => {
+                                    throw new Error(err.message || `HTTP error! status: ${response.status}`);
+                                });
+                            }
+                            return response.json();
+                        })
+                        .then(data => {
+                            if (data.status === 'success') {
+                                logDebug("Sesión inicializada exitosamente.");
+                                return true;
+                            } else {
+                                this.addMessage(data.message || 'Problemas para iniciar la sesión de chat.', 'bot');
+                                return false;
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Error initializing chat:', error);
+                            this.addMessage('No se pudo conectar con el servicio de chat.', 'bot');
+                            throw error;
+                        });
+                    });
+                },
+                
+                sendMessage: function() {
+                    const message = this.input.value.trim();
+                    if (!message || this.isProcessing) return;
+
+                    if (this.currentMode === 'awaitingSupport') {
+                        const contactInfo = message;
+                        if (contactInfo) {
+                            this.input.value = '';
+                            this.addMessage(`Información de contacto: ${contactInfo}`, 'user');
+                            
+                            fetch(`${API_URL}/api/chat/support`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    user_id: this.userId,
+                                    contact_info: contactInfo
+                                })
+                            })
+                            .then(response => response.json())
+                            .then(data => {
+                                if (data.status === 'success' && data.message) {
+                                    this.addMessage(data.message, 'bot');
+                                    
+                                    if (this.requestSupportButton) {
+                                        this.requestSupportButton.disabled = true;
+                                        this.requestSupportButton.textContent = "Solicitud Enviada";
+                                        this.requestSupportButton.style.backgroundColor = "#28a745";
+                                    }
+                                } else {
+                                    this.addMessage(data.message || 'Hubo un problema al crear tu ticket de soporte.', 'bot');
+                                }
+                            })
+                            .catch(error => {
+                                this.addMessage('Hubo un problema al crear tu ticket de soporte.', 'bot');
+                            })
+                            .finally(() => {
+                                this.currentMode = 'normal';
+                            });
+                        }
+                        return;
+                    }
+
+                    if (!this.chatSessionInitialized) {
+                        this.addMessage("Estableciendo conexión...", 'bot');
+                        
+                        this.initializeChatSessionIfNeeded().then(sessionReady => {
+                            const tempMessages = this.messages.querySelectorAll('.message.bot');
+                            if (tempMessages.length > 0) {
+                                const lastMsg = tempMessages[tempMessages.length - 1];
+                                if (lastMsg.textContent === "Estableciendo conexión...") {
+                                    lastMsg.remove();
+                                }
+                            }
+
+                            if (sessionReady) {
+                                this.sendMessage();
+                            } else {
+                                this.addMessage('No se pudo establecer la conexión. Por favor, cierra y vuelve a abrir el chat.', 'bot');
+                            }
+                        });
+                        return;
+                    }
+
+                    this.addMessage(message, 'user');
+                    this.input.value = '';
+                    
+                    const loadingId = 'loading_' + Date.now();
+                    this.addLoadingIndicator(loadingId);
+                    
+                    this.isProcessing = true;
+                    
+                    fetch(`${API_URL}/api/chat/message`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            user_id: this.userId,
+                            message: message
+                        })
+                    })
+                    .then(response => {
+                        if (!response.ok) {
+                            return response.json().then(err => {
+                                if (response.status === 400 && err.message && err.message.includes("Sesión no válida")) {
+                                    this.chatSessionInitialized = false;
+                                    this.addMessage("Parece que hubo un problema con tu sesión. Volviendo a conectarte...", 'bot');
+                                    setTimeout(() => {
+                                        const tempMsgs = this.messages.querySelectorAll('.message.bot');
+                                        if (tempMsgs.length > 0) {
+                                            const lastTempMsg = tempMsgs[tempMsgs.length - 1];
+                                            if (lastTempMsg.textContent === "Parece que hubo un problema con tu sesión. Volviendo a conectarte...") {
+                                                lastTempMsg.remove();
+                                            }
+                                        }
+                                        this.sendMessage();
+                                    }, 1000);
+                                    return;
+                                }
+                                throw new Error(err.message || 'Network response was not ok');
+                            });
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        this.removeElement(loadingId);
+                        
+                        const backendDetectedIntent = data.detected_intent;
+                        const botResponseText = data.response || '';
+                        const isExplicitHandoffSignal = backendDetectedIntent === "intent_to_handoff";
+                        const containsHandoffPhrase = botResponseText.includes("presiona el boton de abajo que dice 'Hablar con alguien'");
+                        const shouldTriggerHandoffUI = isExplicitHandoffSignal || containsHandoffPhrase;
+
+                        if (shouldTriggerHandoffUI && this.requestSupportButton) {
+                            this.requestSupportButton.classList.add('pulse-animation');
+                            setTimeout(() => {
+                                this.requestSupportButton.classList.remove('pulse-animation');
+                            }, 2100);
+                        }
+
+                        if (data.response) {
+                            this.addMessage(data.response, 'bot');
+                            this.lastResponse = data.response;
+
+                            if (data.sources && data.sources.length > 0) {
+                                this.showProductSuggestions(data.sources);
+                            }
+                            
+                            this.footer.style.display = 'block';
+                            this.feedbackSubmitted = false;
+                            this.enableFeedbackButtons();
+                        } else {
+                            this.addMessage('No recibí una respuesta válida del servidor.', 'bot');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error sending message:', error);
+                        this.removeElement(loadingId);
+                        this.addMessage('Hubo un error al procesar tu mensaje. Por favor, inténtalo de nuevo.', 'bot');
+                    })
+                    .finally(() => {
+                        this.isProcessing = false;
+                    });
+                },
+                
+                showProductSuggestions: function(sources) {
+                    let sourcesHTML = '<div class="product-suggestion">';
+                    sourcesHTML += '<strong>Productos relacionados:</strong><br>';
+                    
+                    sources.slice(0, 2).forEach(source => {
+                        sourcesHTML += `<div class="product-title">`;
+                        if (source.url) {
+                            sourcesHTML += `<a href="${source.url}" target="_blank">${source.title}</a>`;
+                        } else {
+                            sourcesHTML += `${source.title}`;
+                        }
+                        sourcesHTML += `</div>`;
+                        sourcesHTML += `<div class="product-price">${source.price} - ${source.availability}</div><br>`;
+                    });
+                    
+                    sourcesHTML += '</div>';
+                    
+                    const sourcesDiv = document.createElement('div');
+                    sourcesDiv.className = 'message bot';
+                    sourcesDiv.innerHTML = sourcesHTML;
+                    this.messages.appendChild(sourcesDiv);
+                    this.scrollToBottom();
+                },
+                
+                addMessage: function(text, sender) {
+                    const messageDiv = document.createElement('div');
+                    messageDiv.className = `message ${sender}`;
+                    messageDiv.textContent = text;
+                    this.messages.appendChild(messageDiv);
+                    this.scrollToBottom();
+                },
+                
+                addLoadingIndicator: function(id) {
+                    const loadingDiv = document.createElement('div');
+                    loadingDiv.id = id;
+                    loadingDiv.className = 'message bot';
+                    loadingDiv.style.opacity = '0.7';
+                    loadingDiv.innerHTML = '<div class="loading-dots"><span></span><span></span><span></span></div> Procesando tu consulta...';
+                    this.messages.appendChild(loadingDiv);
+                    this.scrollToBottom();
+                },
+                
+                removeElement: function(id) {
+                    const element = document.getElementById(id);
+                    if (element) element.remove();
+                },
+                
+                scrollToBottom: function() {
+                    this.messages.scrollTop = this.messages.scrollHeight;
+                },
+                
+                submitFeedback: function(rating) {
+                    if (!this.lastResponse) return;
+                    
+                    fetch(`${API_URL}/api/chat/feedback`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            user_id: this.userId,
+                            rating: rating,
+                            comment: ''
+                        })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.status === 'success') {
+                            this.addMessage('¡Gracias por tu retroalimentación!', 'bot');
+                            this.footer.style.display = 'none';
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error submitting feedback:', error);
+                    });
+                },
+                
+                disableFeedbackButtons: function() {
+                    if (this.feedbackThumbsUp) {
+                        this.feedbackThumbsUp.disabled = true;
+                        this.feedbackThumbsUp.style.opacity = '0.5';
+                        this.feedbackThumbsUp.style.cursor = 'not-allowed';
+                    }
+                    if (this.feedbackThumbsDown) {
+                        this.feedbackThumbsDown.disabled = true;
+                        this.feedbackThumbsDown.style.opacity = '0.5';
+                        this.feedbackThumbsDown.style.cursor = 'not-allowed';
+                    }
+                },
+                
+                enableFeedbackButtons: function() {
+                    if (this.feedbackThumbsUp) {
+                        this.feedbackThumbsUp.disabled = false;
+                        this.feedbackThumbsUp.style.opacity = '1';
+                        this.feedbackThumbsUp.style.cursor = 'pointer';
+                    }
+                    if (this.feedbackThumbsDown) {
+                        this.feedbackThumbsDown.disabled = false;
+                        this.feedbackThumbsDown.style.opacity = '1';
+                        this.feedbackThumbsDown.style.cursor = 'pointer';
+                    }
+                },
+                
+                // ===== FORMULARIO DE CONTACTO OPTIMIZADO =====
+                showSupportForm: function() {
+                    this.messages.innerHTML = '';
+                    this.messages.style.maxHeight = '300px';
+
+                    this.input.style.display = 'none';
+                    this.sendButton.style.display = 'none';
+                    this.requestSupportButton.style.display = 'none';
+
+                    const formHtml = `
+                        <div class="support-form">
+                            <h4>💬 Contactar con soporte</h4>
+                            <p>Completa tus datos y te contactaremos pronto.</p>
+                            
+                            <form id="support-contact-form">
+                                <input type="text" name="website" style="display:none;" tabindex="-1" autocomplete="off">
+                                
+                                <div class="form-group">
+                                    <label for="support-name">Nombre completo *</label>
+                                    <input type="text" id="support-name" name="name" required 
+                                           placeholder="Tu nombre completo" autocomplete="name">
+                                    <div class="error-message" id="name-error"></div>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="support-email">Email *</label>
+                                    <input type="email" id="support-email" name="email" required 
+                                           placeholder="tu@email.com" autocomplete="email">
+                                    <div class="error-message" id="email-error"></div>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="support-phone">Teléfono *</label>
+                                    <input type="tel" id="support-phone" name="phone" required 
+                                           placeholder="1234567890" autocomplete="tel">
+                                    <div class="error-message" id="phone-error"></div>
+                                </div>
+                                
+                                <div class="form-buttons">
+                                    <button type="submit" id="support-submit">Enviar</button>
+                                    <button type="button" id="support-cancel">Cancelar</button>
+                                </div>
+                            </form>
+                        </div>
+                    `;
+
+                    const formContainer = document.createElement('div');
+                    formContainer.className = 'message bot';
+                    formContainer.innerHTML = formHtml;
+                    this.messages.appendChild(formContainer);
+
+                    setTimeout(() => {
+                        this.setupFormValidation();
+                        const form = document.getElementById('support-contact-form');
+                        const cancelBtn = document.getElementById('support-cancel');
+                        
+                        if (form) {
+                            form.addEventListener('submit', this.handleSupportFormSubmit.bind(this));
+                        }
+                        
+                        if (cancelBtn) {
+                            cancelBtn.addEventListener('click', this.hideSupportForm.bind(this));
+                        }
+                        
+                        const nameInput = document.getElementById('support-name');
+                        if (nameInput) nameInput.focus();
+                    }, 100);
+                },
+
+                setupFormValidation: function() {
+                    const nameInput = document.getElementById('support-name');
+                    const emailInput = document.getElementById('support-email');
+                    const phoneInput = document.getElementById('support-phone');
+
+                    if (nameInput) {
+                        nameInput.addEventListener('blur', () => this.validateField('support-name', this.validateName));
+                        nameInput.addEventListener('input', () => this.clearFieldError('support-name'));
+                    }
+
+                    if (emailInput) {
+                        emailInput.addEventListener('blur', () => this.validateField('support-email', this.validateEmail));
+                        emailInput.addEventListener('input', () => this.clearFieldError('support-email'));
+                    }
+
+                    if (phoneInput) {
+                        phoneInput.addEventListener('blur', () => this.validateField('support-phone', this.validatePhone));
+                        phoneInput.addEventListener('input', () => this.clearFieldError('support-phone'));
+                        
+                        // Formatear teléfono mientras escribe
+                        phoneInput.addEventListener('input', (e) => {
+                            let value = e.target.value.replace(/\D/g, '');
+                            if (value.length <= 10) {
+                                e.target.value = value;
+                            } else {
+                                e.target.value = value.slice(0, 10);
+                            }
+                        });
+                    }
+                },
+
+                clearFieldError: function(fieldId) {
+                    const field = document.getElementById(fieldId);
+                    const errorElement = document.getElementById(`${fieldId.replace('support-', '')}-error`);
+                    
+                    if (field) field.classList.remove('error');
+                    if (errorElement) errorElement.textContent = '';
+                },
+
+                hideSupportForm: function(showWelcomeMessage = true) {
+                    this.messages.innerHTML = '';
+                    this.messages.style.maxHeight = '';
+
+                    this.input.style.display = 'block';
+                    this.sendButton.style.display = 'block';
+                    this.requestSupportButton.style.display = 'block';
+                    
+                    if (showWelcomeMessage) {
+                        this.addMessage("¡Hola! Soy tu asistente de panadería especializado en masa madre. ¿En qué puedo ayudarte hoy? Si necesitas hablar con alguien directamente, simplemente presiona el botón '💬 Hablar con alguien' que está abajo.", 'bot');
+                    }
+                    
+                    this.input.focus();
+                },
+
+                handleSupportFormSubmit: function(e) {
+                    e.preventDefault();
+                    
+                    const formData = {
+                        name: document.getElementById('support-name').value.trim(),
+                        email: document.getElementById('support-email').value.trim(),
+                        phone: document.getElementById('support-phone').value.trim(),
+                        honeypot: document.querySelector('input[name="website"]').value
+                    };
+                    
+                    // Validar todos los campos
+                    const nameValid = this.validateField('support-name', this.validateName);
+                    const emailValid = this.validateField('support-email', this.validateEmail);
+                    const phoneValid = this.validateField('support-phone', this.validatePhone);
+                    
+                    if (!nameValid || !emailValid || !phoneValid) {
+                        this.showFormMessage('Por favor corrige los errores marcados.', 'error');
+                        return;
+                    }
+                    
+                    // Protección anti-spam
+                    if (formData.honeypot) {
+                        logDebug('Spam detectado - honeypot completado');
+                        this.showFormMessage('Solicitud procesada. Te contactaremos pronto.', 'success');
+                        setTimeout(() => this.hideSupportForm(), 2000);
+                        return;
+                    }
+                    
+                    this.sendSupportRequest(formData);
+                },
+
+                validateField: function(fieldId, validator) {
+                    const field = document.getElementById(fieldId);
+                    if (!field) return false;
+                    
+                    const errorElementId = fieldId.replace('support-', '') + '-error';
+                    const errorElement = document.getElementById(errorElementId);
+                    const value = field.value.trim();
+                    
+                    const errors = validator(value);
+                    if (errors.length > 0) {
+                        if (errorElement) errorElement.textContent = errors[0];
+                        field.classList.add('error');
+                        return false;
+                    } else {
+                        if (errorElement) errorElement.textContent = '';
+                        field.classList.remove('error');
+                        return true;
+                    }
+                },
+
+                validateName: function(name) {
+                    if (!name) return ["El nombre es requerido"];
+                    if (name.length < 2) return ["El nombre debe tener al menos 2 caracteres"];
+                    if (name.length > 50) return ["El nombre es demasiado largo (máx. 50 caracteres)"];
+                    if (!/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/.test(name)) return ["El nombre solo debe contener letras"];
+                    return [];
+                },
+
+                validateEmail: function(email) {
+                    if (!email) return ["El email es requerido"];
+                    
+                    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                    if (!emailRegex.test(email)) return ["Ingresa un email válido"];
+                    
+                    if (email.length > 254) return ["El email es demasiado largo"];
+                    
+                    const localPart = email.split('@')[0];
+                    if (localPart.length > 64) return ["La parte local del email es demasiado larga"];
+                    
+                    return [];
+                },
+
+                validatePhone: function(phone) {
+                    const cleaned = phone.replace(/[\s\-\(\)]/g, '');
+                    
+                    if (!cleaned) return ["El teléfono es requerido"];
+                    if (!/^\d+$/.test(cleaned)) return ["El teléfono solo debe contener números"];
+                    if (cleaned.length < 10) return ["El teléfono debe tener al menos 10 dígitos"];
+                    if (cleaned.length > 10) return ["El teléfono debe tener máximo 10 dígitos"];
+                    
+                    // Validación adicional para números mexicanos
+                    if (!cleaned.startsWith('1') && !cleaned.startsWith('2') && !cleaned.startsWith('3') && 
+                        !cleaned.startsWith('4') && !cleaned.startsWith('5') && !cleaned.startsWith('6') && 
+                        !cleaned.startsWith('7') && !cleaned.startsWith('8') && !cleaned.startsWith('9')) {
+                        return ["Ingresa un número de teléfono válido"];
+                    }
+                    
+                    return [];
+                },
+
+                showFormMessage: function(message, type = 'info') {
+                    const existingMsg = document.querySelector('.form-message');
+                    if (existingMsg) existingMsg.remove();
+
+                    const msgDiv = document.createElement('div');
+                    msgDiv.className = `form-message form-message-${type}`;
+                    msgDiv.textContent = message;
+                    msgDiv.style.cssText = `
+                        padding: 8px 12px;
+                        margin: 8px 0;
+                        border-radius: 4px;
+                        font-size: 12px;
+                        font-weight: 500;
+                        text-align: center;
+                        ${type === 'error' ? 'background-color: #f8d7da; border: 1px solid #f5c6cb; color: #721c24;' : ''}
+                        ${type === 'success' ? 'background-color: #d1ecf1; border: 1px solid #bee5eb; color: #0c5460;' : ''}
+                        ${type === 'info' ? 'background-color: #d4edda; border: 1px solid #c3e6cb; color: #155724;' : ''}
+                    `;
+
+                    const form = document.getElementById('support-contact-form');
+                    if (form) {
+                        form.insertBefore(msgDiv, form.firstChild);
+                    }
+
+                    // Remover mensaje después de 5 segundos
+                    setTimeout(() => {
+                        if (msgDiv.parentNode) msgDiv.remove();
+                    }, 5000);
+                },
+
+                setFormLoading: function(loading) {
+                    const form = document.getElementById('support-contact-form');
+                    const submitBtn = document.getElementById('support-submit');
+                    
+                    if (loading) {
+                        form?.classList.add('form-loading');
+                        if (submitBtn) {
+                            submitBtn.disabled = true;
+                            submitBtn.textContent = 'Enviando...';
+                        }
+                    } else {
+                        form?.classList.remove('form-loading');
+                        if (submitBtn) {
+                            submitBtn.disabled = false;
+                            submitBtn.textContent = 'Enviar';
+                        }
+                    }
+                },
+
+                sendSupportRequest: function(formData) {
+                    this.setFormLoading(true);
+                    this.showFormMessage('Enviando tu solicitud...', 'info');
+                    
+                    fetch(`${API_URL}/api/chat/support`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            user_id: this.userId,
+                            contact_info: {
+                                name: formData.name,
+                                email: formData.email,
+                                phone: formData.phone
+                            }
+                        })
+                    })
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error(`HTTP error! status: ${response.status}`);
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        this.setFormLoading(false);
+                        
+                        if (data.status === 'success') {
+                            this.showFormMessage('¡Solicitud enviada correctamente! Te contactaremos pronto.', 'success');
+                            
+                            // Marcar formulario como exitoso
+                            const form = document.querySelector('.support-form');
+                            if (form) form.classList.add('form-success');
+                            
+                            // Desactivar botón de soporte
+                            if (this.requestSupportButton) {
+                                this.requestSupportButton.disabled = true;
+                                this.requestSupportButton.innerHTML = '✅ Solicitud Enviada';
+                                this.requestSupportButton.style.backgroundColor = '#28a745';
+                            }
+                            
+                            // Cerrar formulario después de 3 segundos
+                            setTimeout(() => {
+                                this.hideSupportForm(false);
+                                this.addMessage('Tu solicitud ha sido enviada. Un representante te contactará pronto. ¡Gracias por contactarnos!', 'bot');
+                            }, 3000);
+                            
+                        } else {
+                            this.showFormMessage(data.message || 'Error al enviar la solicitud. Intenta nuevamente.', 'error');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error sending support request:', error);
+                        this.setFormLoading(false);
+                        this.showFormMessage('Error de conexión. Por favor verifica tu internet e intenta nuevamente.', 'error');
+                    });
+                },
+
+                requestSupport: function() {
+                    logDebug("Solicitando soporte - Mostrando formulario optimizado");
+                    
+                    if (this.supportRequestsCount >= this.maxSupportRequests) {
+                        this.addMessage("Ya has solicitado hablar con alguien. Te contactaremos pronto.", 'bot');
+                        return;
+                    }
+                    
+                    this.showSupportForm();
+                    this.supportRequestsCount++;
+                }
+            };
+            
+            // Inicializar el chatbot optimizado
+            chatbot.init();
+            logDebug("Chatbot optimizado iniciado correctamente.");
+        });
+    </script>
+</body>
+</html>
