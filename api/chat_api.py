@@ -403,6 +403,21 @@ def request_support():
 
 # --- NUEVOS ENDPOINTS PARA SHOPIFY ---
 
+@app.route('/api/shopify/debug', methods=['GET'])
+def debug_products():
+    """Endpoint para diagnosticar productos almacenados"""
+    shop = request.args.get('shop', 'panartesanal-monterrey.myshopify.com')
+    
+    products = shop_products.get(shop, [])
+    config = shop_configs.get(shop, {})
+    
+    return jsonify({
+        "shop": shop,
+        "products_count": len(products),
+        "products_sample": products[:2] if products else [],
+        "config": config
+    })
+
 @app.route('/api/shopify/sync-products', methods=['POST'])
 def shopify_sync_products():
     """Sincronizar productos desde Shopify"""
@@ -568,7 +583,7 @@ def shopify_get_config():
 # --- FUNCIONES AUXILIARES PARA SHOPIFY ---
 
 def process_shopify_chat_message(message, products, config, context={}):
-    """Procesar mensaje de chat desde Shopify"""
+    """Procesar mensaje de chat desde Shopify usando productos locales"""
     lower_message = message.lower()
     
     # Detección de intención básica
@@ -577,44 +592,56 @@ def process_shopify_chat_message(message, products, config, context={}):
     suggested_products = []
     detected_intent = 'general'
     
-    if 'product_search' in intents:
-        detected_intent = 'product_search'
-        suggested_products = search_shopify_products(lower_message, products)
+    # Si hay productos disponibles, usar búsqueda local en lugar de Pinecone
+    if products:
+        if 'product_search' in intents or 'price_inquiry' in intents or 'availability' in intents:
+            # Usar búsqueda local en productos de Shopify
+            suggested_products = search_shopify_products(lower_message, products)
+            
+            if suggested_products:
+                if 'product_search' in intents:
+                    detected_intent = 'product_search'
+                    response = f"Encontré {len(suggested_products)} producto{'s' if len(suggested_products) > 1 else ''} que podrían interesarte:"
+                elif 'price_inquiry' in intents:
+                    detected_intent = 'price_inquiry'
+                    response = 'Aquí tienes información de precios:'
+                elif 'availability' in intents:
+                    detected_intent = 'availability'
+                    # Filtrar solo productos disponibles
+                    available_products = [p for p in suggested_products if p.get('availability') == 'En stock']
+                    if available_products:
+                        response = 'Estos productos están disponibles ahora:'
+                        suggested_products = available_products
+                    else:
+                        response = 'Los productos que mencionas no están disponibles actualmente. ¿Te interesa algo más?'
+                        suggested_products = []
+            else:
+                response = 'No encontré productos específicos con esos términos, pero puedo ayudarte a encontrar algo más. ¿Qué tipo de producto de panadería estás buscando?'
         
-        if suggested_products:
-            response = f"Encontré {len(suggested_products)} producto{'s' if len(suggested_products) > 1 else ''} que podrían interesarte:"
-        else:
-            response = 'No encontré productos específicos con esos términos, pero puedo ayudarte a encontrar algo más. ¿Qué tipo de producto de panadería estás buscando?'
-    
-    elif 'price_inquiry' in intents:
-        detected_intent = 'price_inquiry'
-        price_products = search_shopify_products(lower_message, products)
+        elif 'support_request' in intents:
+            detected_intent = 'intent_to_handoff'
+            response = 'Entiendo que necesitas ayuda especializada. Por favor, presiona el botón de abajo que dice "Hablar con alguien" para que nuestro equipo te contacte directamente.'
         
-        if price_products:
-            response = 'Aquí tienes información de precios:'
-            suggested_products = price_products
+        elif 'greeting' in intents:
+            detected_intent = 'greeting'
+            response = config.get('welcomeMessage', '¡Hola! Bienvenido a nuestra panadería. ¿En qué puedo ayudarte hoy?')
+        
         else:
-            response = 'Para darte información precisa de precios, ¿me podrías decir qué producto específico te interesa?'
-    
-    elif 'support_request' in intents:
-        detected_intent = 'intent_to_handoff'
-        response = 'Entiendo que necesitas ayuda especializada. Por favor, presiona el botón de abajo que dice "Hablar con alguien" para que nuestro equipo te contacte directamente.'
-    
-    elif 'greeting' in intents:
-        detected_intent = 'greeting'
-        response = config.get('welcomeMessage', '¡Hola! Bienvenido a nuestra panadería. ¿En qué puedo ayudarte hoy?')
+            # Búsqueda general en productos locales
+            general_results = search_shopify_products(lower_message, products, threshold=0.3)
+            
+            if general_results:
+                detected_intent = 'general_product_match'
+                response = 'Basándome en tu consulta, estos productos podrían interesarte:'
+                suggested_products = general_results[:3]
+            else:
+                detected_intent = 'general'
+                response = get_general_shopify_response(lower_message, config)
     
     else:
-        # Búsqueda general en productos
-        general_results = search_shopify_products(lower_message, products, threshold=0.3)
-        
-        if general_results:
-            detected_intent = 'general_product_match'
-            response = 'Basándome en tu consulta, estos productos podrían interesarte:'
-            suggested_products = general_results[:3]
-        else:
-            detected_intent = 'general'
-            response = get_general_shopify_response(lower_message, config)
+        # Si no hay productos sincronizados, usar respuesta general
+        detected_intent = 'general'
+        response = 'Para poder ayudarte mejor con nuestros productos, necesito que el administrador sincronice el catálogo. Mientras tanto, ¿en qué más puedo asistirte?'
     
     return {
         'response': response,
@@ -622,6 +649,7 @@ def process_shopify_chat_message(message, products, config, context={}):
         'detected_intent': detected_intent,
         'context_used': bool(context.get('page_url'))
     }
+
 
 def detect_shopify_intent(message):
     """Detectar intenciones en mensajes de Shopify"""
