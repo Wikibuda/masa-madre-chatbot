@@ -61,37 +61,10 @@ sessions = defaultdict(lambda: None)
 
 # --- NUEVOS ENDPOINTS PARA TIENDA CON CHATBOT ---
 
-
-
-// api-extension.js - Extensiones para la API existente del chatbot
-// Agregar estos endpoints al servidor existente de masa-madre-chatbot-api
-
-const express = require('express');
-const router = express.Router();
-
-// Middleware para validar tienda de Shopify
-const validateShopifyStore = (req, res, next) => {
-  const shop = req.get('X-Shop-Domain') || req.body.shop || req.query.shop;
-  
-  if (!shop || !shop.includes('.myshopify.com')) {
-    return res.status(400).json({
-      success: false,
-      error: 'Dominio de tienda de Shopify inválido'
-    });
-  }
-  
-  req.shop = shop;
-  next();
-};
-
-// Base de datos en memoria para configuraciones de tiendas (en producción usar Redis/MongoDB)
-const shopConfigs = new Map();
-const shopProducts = new Map();
-
 // === ENDPOINTS PARA CONFIGURACIÓN ===
 
 // Obtener configuración de una tienda
-router.get('/config', validateShopifyStore, (req, res) => {
+router.get('/api/chat/config', validateShopifyStore, (req, res) => {
   const config = shopConfigs.get(req.shop) || {
     enabled: true,
     primaryColor: '#8B4513',
@@ -123,7 +96,7 @@ router.get('/config', validateShopifyStore, (req, res) => {
 // === ENDPOINTS PARA SINCRONIZACIÓN DE PRODUCTOS ===
 
 // Sincronizar todos los productos de una tienda
-router.post('/sync-products', validateShopifyStore, (req, res) => {
+router.post('/api/chat/sync-products', validateShopifyStore, (req, res) => {
   try {
     const { products, config } = req.body;
     
@@ -175,7 +148,7 @@ router.post('/sync-products', validateShopifyStore, (req, res) => {
 });
 
 // Actualizar un producto específico
-router.post('/product-update', validateShopifyStore, (req, res) => {
+router.post('/api/chat/product-update', validateShopifyStore, (req, res) => {
   try {
     const { action, product, product_id } = req.body;
     const currentProducts = shopProducts.get(req.shop) || [];
@@ -239,7 +212,7 @@ router.post('/product-update', validateShopifyStore, (req, res) => {
 
 // === ENDPOINT PRINCIPAL DE CHAT ===
 
-router.post('/chat', validateShopifyStore, async (req, res) => {
+router.post('/api/chat/chat', validateShopifyStore, async (req, res) => {
   try {
     const { message, user_id, context } = req.body;
     
@@ -472,7 +445,7 @@ function getBusinessHoursMessage(businessHours) {
 
 // === ENDPOINTS DE MONITOREO ===
 
-router.get('/health', (req, res) => {
+router.get('/api/chat/health', (req, res) => {
   res.json({
     status: 'healthy',
     timestamp: new Date().toISOString(),
@@ -481,7 +454,7 @@ router.get('/health', (req, res) => {
   });
 });
 
-router.get('/stats/:shop', validateShopifyStore, (req, res) => {
+router.get('/api/chat/stats/:shop', validateShopifyStore, (req, res) => {
   const products = shopProducts.get(req.shop) || [];
   const config = shopConfigs.get(req.shop);
   
