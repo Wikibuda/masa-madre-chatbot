@@ -154,7 +154,7 @@ router.post('/sync-products', validateShopifyStore, (req, res) => {
     // Almacenar productos (en producción usar base de datos con índices de búsqueda)
     shopProducts.set(req.shop, processedProducts);
     
-    console.log(`✅ Sincronizados ${processedProducts.length} productos para ${req.shop}`);
+    console.log("✅ Sincronizados ${processedProducts.length} productos para ${req.shop}");
     
     res.json({
       success: true,
