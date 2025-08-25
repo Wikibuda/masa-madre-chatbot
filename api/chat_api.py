@@ -266,8 +266,8 @@ router.post('/chat', validateShopifyStore, async (req, res) => {
     const chatResponse = await processChatMessage(message, products, config, context);
     
     // Registrar interacción (en producción, guardar en base de datos)
-    console.log(`💬 [${req.shop}] ${user_id}: ${message}`);
-    console.log(`🤖 [${req.shop}] Bot: ${chatResponse.response}`);
+    console.log("💬 [${req.shop}] ${user_id}: ${message}");
+    console.log("🤖 [${req.shop}] Bot: ${chatResponse.response}");
     
     res.json({
       success: true,
