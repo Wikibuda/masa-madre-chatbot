@@ -58,6 +58,450 @@ CORS(app, resources={
 from collections import defaultdict
 sessions = defaultdict(lambda: None)
 
+
+# --- NUEVOS ENDPOINTS PARA TIENDA CON CHATBOT ---
+
+
+
+// api-extension.js - Extensiones para la API existente del chatbot
+// Agregar estos endpoints al servidor existente de masa-madre-chatbot-api
+
+const express = require('express');
+const router = express.Router();
+
+// Middleware para validar tienda de Shopify
+const validateShopifyStore = (req, res, next) => {
+  const shop = req.get('X-Shop-Domain') || req.body.shop || req.query.shop;
+  
+  if (!shop || !shop.includes('.myshopify.com')) {
+    return res.status(400).json({
+      success: false,
+      error: 'Dominio de tienda de Shopify inválido'
+    });
+  }
+  
+  req.shop = shop;
+  next();
+};
+
+// Base de datos en memoria para configuraciones de tiendas (en producción usar Redis/MongoDB)
+const shopConfigs = new Map();
+const shopProducts = new Map();
+
+// === ENDPOINTS PARA CONFIGURACIÓN ===
+
+// Obtener configuración de una tienda
+router.get('/config', validateShopifyStore, (req, res) => {
+  const config = shopConfigs.get(req.shop) || {
+    enabled: true,
+    primaryColor: '#8B4513',
+    welcomeMessage: '¡Hola! ¿En qué puedo ayudarte con nuestros productos de panadería?',
+    supportEmail: '',
+    categories: ['Panes', 'Pasteles', 'Masa Madre', 'Ingredientes'],
+    businessHours: {
+      enabled: false,
+      timezone: 'America/Mexico_City',
+      schedule: {
+        monday: { open: '09:00', close: '18:00' },
+        tuesday: { open: '09:00', close: '18:00' },
+        wednesday: { open: '09:00', close: '18:00' },
+        thursday: { open: '09:00', close: '18:00' },
+        friday: { open: '09:00', close: '18:00' },
+        saturday: { open: '10:00', close: '16:00' },
+        sunday: { closed: true }
+      }
+    }
+  };
+  
+  res.json({
+    success: true,
+    enabled: config.enabled,
+    config
+  });
+});
+
+// === ENDPOINTS PARA SINCRONIZACIÓN DE PRODUCTOS ===
+
+// Sincronizar todos los productos de una tienda
+router.post('/sync-products', validateShopifyStore, (req, res) => {
+  try {
+    const { products, config } = req.body;
+    
+    if (!Array.isArray(products)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Formato de productos inválido'
+      });
+    }
+    
+    // Guardar configuración de la tienda
+    shopConfigs.set(req.shop, {
+      ...shopConfigs.get(req.shop),
+      ...config,
+      lastSyncAt: new Date().toISOString()
+    });
+    
+    // Procesar y almacenar productos
+    const processedProducts = products.map(product => ({
+      ...product,
+      shop: req.shop,
+      search_text: `${product.title} ${product.description} ${product.category} ${product.tags?.join(' ')}`.toLowerCase(),
+      price_numeric: parseFloat(product.price) || 0,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    }));
+    
+    // Almacenar productos (en producción usar base de datos con índices de búsqueda)
+    shopProducts.set(req.shop, processedProducts);
+    
+    console.log(`✅ Sincronizados ${processedProducts.length} productos para ${req.shop}`);
+    
+    res.json({
+      success: true,
+      message: `${processedProducts.length} productos sincronizados correctamente`,
+      products_count: processedProducts.length,
+      shop: req.shop,
+      sync_time: new Date().toISOString()
+    });
+    
+  } catch (error) {
+    console.error('Error sincronizando productos:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Error interno del servidor',
+      details: error.message
+    });
+  }
+});
+
+// Actualizar un producto específico
+router.post('/product-update', validateShopifyStore, (req, res) => {
+  try {
+    const { action, product, product_id } = req.body;
+    const currentProducts = shopProducts.get(req.shop) || [];
+    
+    switch (action) {
+      case 'create':
+      case 'update':
+        const processedProduct = {
+          ...product,
+          shop: req.shop,
+          search_text: `${product.title} ${product.description} ${product.category} ${product.tags?.join(' ')}`.toLowerCase(),
+          price_numeric: parseFloat(product.price) || 0,
+          updated_at: new Date().toISOString()
+        };
+        
+        const existingIndex = currentProducts.findIndex(p => p.shopify_id === product.shopify_id);
+        
+        if (existingIndex >= 0) {
+          currentProducts[existingIndex] = processedProduct;
+        } else {
+          processedProduct.created_at = new Date().toISOString();
+          currentProducts.push(processedProduct);
+        }
+        
+        shopProducts.set(req.shop, currentProducts);
+        
+        res.json({
+          success: true,
+          action,
+          message: `Producto ${action === 'create' ? 'creado' : 'actualizado'} correctamente`
+        });
+        break;
+        
+      case 'delete':
+        const filteredProducts = currentProducts.filter(p => p.shopify_id !== product_id);
+        shopProducts.set(req.shop, filteredProducts);
+        
+        res.json({
+          success: true,
+          action,
+          message: 'Producto eliminado correctamente'
+        });
+        break;
+        
+      default:
+        res.status(400).json({
+          success: false,
+          error: 'Acción no válida. Use: create, update, delete'
+        });
+    }
+    
+  } catch (error) {
+    console.error('Error actualizando producto:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Error actualizando producto',
+      details: error.message
+    });
+  }
+});
+
+// === ENDPOINT PRINCIPAL DE CHAT ===
+
+router.post('/chat', validateShopifyStore, async (req, res) => {
+  try {
+    const { message, user_id, context } = req.body;
+    
+    if (!message || !user_id) {
+      return res.status(400).json({
+        success: false,
+        error: 'Mensaje y user_id son requeridos'
+      });
+    }
+    
+    const config = shopConfigs.get(req.shop) || {};
+    const products = shopProducts.get(req.shop) || [];
+    
+    // Validar horarios de negocio si están habilitados
+    if (config.businessHours?.enabled && !isBusinessHours(config.businessHours)) {
+      return res.json({
+        success: true,
+        response: `Gracias por contactarnos. Nuestro horario de atención es de lunes a viernes de 9:00 AM a 6:00 PM, y sábados de 10:00 AM a 4:00 PM. Te responderemos en nuestro próximo horario de atención.`,
+        out_of_hours: true
+      });
+    }
+    
+    // Procesar mensaje y buscar productos relevantes
+    const chatResponse = await processChatMessage(message, products, config, context);
+    
+    // Registrar interacción (en producción, guardar en base de datos)
+    console.log(`💬 [${req.shop}] ${user_id}: ${message}`);
+    console.log(`🤖 [${req.shop}] Bot: ${chatResponse.response}`);
+    
+    res.json({
+      success: true,
+      ...chatResponse,
+      shop: req.shop,
+      timestamp: new Date().toISOString()
+    });
+    
+  } catch (error) {
+    console.error('Error procesando chat:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Error procesando mensaje',
+      details: error.message
+    });
+  }
+});
+
+// === FUNCIONES AUXILIARES ===
+
+async function processChatMessage(message, products, config, context = {}) {
+  const lowerMessage = message.toLowerCase();
+  
+  // Detección de intención básica
+  const intents = detectIntent(lowerMessage);
+  let response = '';
+  let suggestedProducts = [];
+  let detectedIntent = 'general';
+  
+  if (intents.includes('product_search')) {
+    detectedIntent = 'product_search';
+    suggestedProducts = searchProducts(lowerMessage, products);
+    
+    if (suggestedProducts.length > 0) {
+      response = `Encontré ${suggestedProducts.length} producto${suggestedProducts.length > 1 ? 's' : ''} que podrían interesarte:`;
+    } else {
+      response = 'No encontré productos específicos con esos términos, pero puedo ayudarte a encontrar algo más. ¿Qué tipo de producto de panadería estás buscando?';
+    }
+  }
+  else if (intents.includes('price_inquiry')) {
+    detectedIntent = 'price_inquiry';
+    const priceProducts = searchProducts(lowerMessage, products);
+    
+    if (priceProducts.length > 0) {
+      response = 'Aquí tienes información de precios:';
+      suggestedProducts = priceProducts;
+    } else {
+      response = 'Para darte información precisa de precios, ¿me podrías decir qué producto específico te interesa?';
+    }
+  }
+  else if (intents.includes('availability')) {
+    detectedIntent = 'availability';
+    const availableProducts = searchProducts(lowerMessage, products).filter(p => 
+      p.availability === 'En stock'
+    );
+    
+    if (availableProducts.length > 0) {
+      response = 'Estos productos están disponibles ahora:';
+      suggestedProducts = availableProducts;
+    } else {
+      response = 'Déjame verificar la disponibilidad de nuestros productos. ¿Qué producto específico te interesa?';
+    }
+  }
+  else if (intents.includes('support_request')) {
+    detectedIntent = 'intent_to_handoff';
+    response = 'Entiendo que necesitas ayuda especializada. Por favor, presiona el botón de abajo que dice "Hablar con alguien" para que nuestro equipo te contacte directamente.';
+  }
+  else if (intents.includes('greeting')) {
+    detectedIntent = 'greeting';
+    response = config.welcomeMessage || '¡Hola! Bienvenido a nuestra panadería. ¿En qué puedo ayudarte hoy? Puedo ayudarte a encontrar productos, verificar precios y disponibilidad.';
+  }
+  else if (intents.includes('hours_inquiry')) {
+    detectedIntent = 'hours_inquiry';
+    if (config.businessHours?.enabled) {
+      response = getBusinessHoursMessage(config.businessHours);
+    } else {
+      response = 'Para información sobre nuestros horarios, te recomiendo contactar directamente a la tienda. ¿Hay algo más en lo que pueda ayudarte?';
+    }
+  }
+  else {
+    // Búsqueda general en productos
+    const generalResults = searchProducts(lowerMessage, products, 0.3);
+    
+    if (generalResults.length > 0) {
+      detectedIntent = 'general_product_match';
+      response = 'Basándome en tu consulta, estos productos podrían interesarte:';
+      suggestedProducts = generalResults.slice(0, 3);
+    } else {
+      detectedIntent = 'general';
+      response = getGeneralResponse(lowerMessage, config);
+    }
+  }
+  
+  return {
+    response,
+    products: suggestedProducts.slice(0, 4), // Máximo 4 productos
+    detected_intent: detectedIntent,
+    context_used: !!context.page_url
+  };
+}
+
+function detectIntent(message) {
+  const intents = [];
+  
+  // Patterns de intenciones
+  const patterns = {
+    greeting: /\b(hola|buenos días|buenas tardes|buenas noches|saludos|hey)\b/i,
+    product_search: /\b(busco|quiero|necesito|me interesa|pan|pastel|masa madre|ingredientes|harina)\b/i,
+    price_inquiry: /\b(precio|cuesta|cuánto|costo|vale)\b/i,
+    availability: /\b(disponible|hay|tienen|stock|inventario)\b/i,
+    support_request: /\b(ayuda|hablar|contactar|problema|queja|soporte|asesor|persona|humano)\b/i,
+    hours_inquiry: /\b(horario|hora|abierto|cerrado|cuándo)\b/i
+  };
+  
+  for (const [intent, pattern] of Object.entries(patterns)) {
+    if (pattern.test(message)) {
+      intents.push(intent);
+    }
+  }
+  
+  return intents;
+}
+
+function searchProducts(query, products, threshold = 0.5) {
+  if (!products || products.length === 0) return [];
+  
+  const queryWords = query.toLowerCase().split(/\s+/).filter(word => word.length > 2);
+  
+  return products
+    .map(product => {
+      let score = 0;
+      const searchText = product.search_text || '';
+      
+      // Coincidencia exacta en título (alta puntuación)
+      if (product.title.toLowerCase().includes(query.toLowerCase())) {
+        score += 2;
+      }
+      
+      // Coincidencias por palabra
+      queryWords.forEach(word => {
+        if (searchText.includes(word)) {
+          score += 1;
+        }
+        if (product.title.toLowerCase().includes(word)) {
+          score += 1.5;
+        }
+        if (product.category.toLowerCase().includes(word)) {
+          score += 1;
+        }
+      });
+      
+      return { ...product, relevance_score: score };
+    })
+    .filter(product => product.relevance_score >= threshold)
+    .sort((a, b) => b.relevance_score - a.relevance_score);
+}
+
+function getGeneralResponse(message, config) {
+  const responses = [
+    'Soy tu asistente especializado en productos de panadería. Puedo ayudarte a encontrar panes, pasteles, ingredientes y más. ¿Qué estás buscando específicamente?',
+    'Estoy aquí para ayudarte con cualquier pregunta sobre nuestros productos. Puedo verificar precios, disponibilidad y darte recomendaciones. ¿En qué puedo asistirte?',
+    'Como especialista en panadería, puedo ayudarte a encontrar exactamente lo que necesitas. ¿Te interesa algún producto en particular?'
+  ];
+  
+  return responses[Math.floor(Math.random() * responses.length)];
+}
+
+function isBusinessHours(businessHours) {
+  if (!businessHours.enabled) return true;
+  
+  const now = new Date();
+  const timezone = businessHours.timezone || 'America/Mexico_City';
+  const localTime = new Date(now.toLocaleString("en-US", {timeZone: timezone}));
+  
+  const day = localTime.toLocaleDateString('en-US', {weekday: 'lowercase'});
+  const currentTime = localTime.toTimeString().slice(0, 5);
+  
+  const daySchedule = businessHours.schedule[day];
+  
+  if (!daySchedule || daySchedule.closed) {
+    return false;
+  }
+  
+  return currentTime >= daySchedule.open && currentTime <= daySchedule.close;
+}
+
+function getBusinessHoursMessage(businessHours) {
+  const schedule = businessHours.schedule;
+  let message = 'Nuestros horarios de atención son:\n';
+  
+  Object.entries(schedule).forEach(([day, hours]) => {
+    const dayName = day.charAt(0).toUpperCase() + day.slice(1);
+    if (hours.closed) {
+      message += `${dayName}: Cerrado\n`;
+    } else {
+      message += `${dayName}: ${hours.open} - ${hours.close}\n`;
+    }
+  });
+  
+  return message.trim();
+}
+
+// === ENDPOINTS DE MONITOREO ===
+
+router.get('/health', (req, res) => {
+  res.json({
+    status: 'healthy',
+    timestamp: new Date().toISOString(),
+    shops_configured: shopConfigs.size,
+    total_products: Array.from(shopProducts.values()).reduce((total, products) => total + products.length, 0)
+  });
+});
+
+router.get('/stats/:shop', validateShopifyStore, (req, res) => {
+  const products = shopProducts.get(req.shop) || [];
+  const config = shopConfigs.get(req.shop);
+  
+  res.json({
+    shop: req.shop,
+    products_count: products.length,
+    categories: [...new Set(products.map(p => p.category))],
+    last_sync: config?.lastSyncAt || null,
+    enabled: config?.enabled || false
+  });
+});
+
+module.exports = router;
+
+
+# --- NUEVOS ENDPOINTS PARA TIENDA CON CHATBOT ---
+
+
+
+
 # --- ENDPOINTS DE LA API ---
 
 @app.route('/api/health', methods=['GET'])
