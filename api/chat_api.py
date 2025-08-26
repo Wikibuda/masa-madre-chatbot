@@ -804,6 +804,12 @@ def serve_widget_script():
         "welcomeMessage": "¡Hola! ¿En qué puedo ayudarte?",
         "position": "bottom-right"
     })
+    # Corregir lógica de posición
+    position_css = "position:fixed;bottom:20px;z-index:9999;"
+    if config.get('position', 'bottom-right') == 'bottom-left':
+        position_css += "left:20px;"
+    else:
+        position_css += "right:20px;"
     
     script_content = f"""
 (function() {{
