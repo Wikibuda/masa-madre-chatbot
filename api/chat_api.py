@@ -851,7 +851,10 @@ def serve_widget_script():
       </div>
       <div id="chat-window" style="display:none;background:white;border-radius:12px;width:350px;height:500px;box-shadow:0 8px 25px rgba(0,0,0,0.15);margin-top:10px;flex-direction:column;">
         <div style="background:{config.get('primaryColor', '#8B4513')};color:white;padding:15px 20px;display:flex;justify-content:space-between;align-items:center;">
-          <span style="font-weight:600;">Asistente Masa Madre</span>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <span style="font-weight:600;">Asistente Masa Madre</span>
+            <div id="connection-status" style="width:8px;height:8px;border-radius:50%;background:#ffa500;" title="Conectando..."></div>
+          </div>
           <button id="chat-close" style="background:none;border:none;color:white;font-size:20px;cursor:pointer;">×</button>
         </div>
         <div id="chat-messages" style="flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:12px;">
@@ -859,14 +862,14 @@ def serve_widget_script():
             {config.get('welcomeMessage', '¡Hola! ¿En qué puedo ayudarte?')}
           </div>
         </div>
+        <div style="padding:20px;border-top:1px solid #eee;display:flex;gap:10px;">
+          <input type="text" id="chat-input" placeholder="Escribe tu mensaje..." style="flex:1;padding:12px 16px;border:1px solid #ddd;border-radius:20px;outline:none;">
+          <button id="chat-send" style="background:{config.get('primaryColor', '#8B4513')};color:white;border:none;padding:0 16px;border-radius:20px;cursor:pointer;">→</button>
+        </div>
         <div style="padding:10px 20px;border-top:1px solid #f0f0f0;">
           <button id="chat-support" style="width:100%;padding:8px 12px;background:#f8f9fa;color:#666;border:1px solid #ddd;border-radius:15px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;gap:6px;">
             💬 Hablar con alguien
           </button>
-        </div>
-        <div style="padding:20px;border-top:1px solid #eee;display:flex;gap:10px;">
-          <input type="text" id="chat-input" placeholder="Escribe tu mensaje..." style="flex:1;padding:12px 16px;border:1px solid #ddd;border-radius:20px;outline:none;">
-          <button id="chat-send" style="background:{config.get('primaryColor', '#8B4513')};color:white;border:none;padding:0 16px;border-radius:20px;cursor:pointer;">→</button>
         </div>
       </div>
     </div>
@@ -881,8 +884,49 @@ def serve_widget_script():
   const send = document.getElementById('chat-send');
   const messages = document.getElementById('chat-messages');
   const supportBtn = document.getElementById('chat-support');
+  const connectionStatus = document.getElementById('connection-status');
 
   let isOpen = false;
+  let isConnected = false;
+  let supportRequested = false;
+  let buttonCooldowns = {{}};  // Anti-spam protection
+
+  // Funciones para manejar estado de conexión
+  function updateConnectionStatus(status) {{
+    const colors = {{
+      'connecting': '#ffa500', // naranja
+      'connected': '#28a745',  // verde  
+      'error': '#dc3545',      // rojo
+      'sending': '#ffc107'     // amarillo
+    }};
+    
+    const titles = {{
+      'connecting': 'Conectando...',
+      'connected': 'Conectado', 
+      'error': 'Sin conexión',
+      'sending': 'Enviando mensaje...'
+    }};
+    
+    connectionStatus.style.background = colors[status] || '#ffa500';
+    connectionStatus.title = titles[status] || 'Estado desconocido';
+    isConnected = status === 'connected';
+  }}
+
+  // Anti-spam protection
+  function canUseButton(buttonId, cooldownMs = 2000) {{
+    const now = Date.now();
+    if (buttonCooldowns[buttonId] && now - buttonCooldowns[buttonId] < cooldownMs) {{
+      return false;
+    }}
+    buttonCooldowns[buttonId] = now;
+    return true;
+  }}
+
+  // Test connection on load
+  updateConnectionStatus('connecting');
+  fetch('https://masa-madre-chatbot-api.onrender.com/api/health')
+    .then(response => response.ok ? updateConnectionStatus('connected') : updateConnectionStatus('error'))
+    .catch(() => updateConnectionStatus('error'));
 
   toggle.addEventListener('click', () => {{
     isOpen = !isOpen;
@@ -895,29 +939,69 @@ def serve_widget_script():
   }});
 
   supportBtn.addEventListener('click', () => {{
+    // Anti-spam protection
+    if (!canUseButton('support', 3000)) {{
+      return;
+    }}
+    
+    // Si ya se solicitó soporte, no hacer nada
+    if (supportRequested) {{
+      return;
+    }}
+    
+    // Cambiar estado del botón de soporte
+    supportBtn.style.background = '#28a745';
+    supportBtn.style.color = 'white';
+    supportBtn.innerHTML = '✓ Formulario enviado';
+    supportBtn.disabled = true;
+    supportRequested = true;
+    
+    // Mostrar mensaje del bot
+    addMessage('Perfecto, te ayudo a contactar con nuestro equipo. Por favor completa el formulario:', 'bot');
+    
     // Mostrar formulario de soporte
-    const supportForm = `
-      <div style="background:#f8f9fa;padding:12px 16px;border-radius:18px;max-width:85%;border-bottom-left-radius:6px;">
-        <strong>💬 Formulario de Contacto</strong><br><br>
-        <input type="text" id="support-name" placeholder="Tu nombre" style="width:100%;padding:8px;margin:4px 0;border:1px solid #ddd;border-radius:8px;"><br>
-        <input type="email" id="support-email" placeholder="Tu email" style="width:100%;padding:8px;margin:4px 0;border:1px solid #ddd;border-radius:8px;"><br>
-        <textarea id="support-message" placeholder="¿En qué podemos ayudarte?" style="width:100%;padding:8px;margin:4px 0;border:1px solid #ddd;border-radius:8px;height:60px;resize:vertical;"></textarea><br>
-        <button onclick="submitSupportRequest()" style="background:{config.get('primaryColor', '#8B4513')};color:white;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;margin-top:8px;">Enviar</button>
-      </div>
+    const supportForm = document.createElement('div');
+    supportForm.style.cssText = 'background:#f8f9fa;padding:12px 16px;border-radius:18px;max-width:85%;border-bottom-left-radius:6px;';
+    supportForm.innerHTML = `
+      <strong>💬 Formulario de Contacto</strong><br><br>
+      <input type="text" id="support-name" placeholder="Tu nombre" style="width:100%;padding:8px;margin:4px 0;border:1px solid #ddd;border-radius:8px;" required maxlength="50"><br>
+      <input type="email" id="support-email" placeholder="Tu email" style="width:100%;padding:8px;margin:4px 0;border:1px solid #ddd;border-radius:8px;" required><br>
+      <textarea id="support-message" placeholder="¿En qué podemos ayudarte?" style="width:100%;padding:8px;margin:4px 0;border:1px solid #ddd;border-radius:8px;height:60px;resize:vertical;" required maxlength="500"></textarea><br>
+      <button id="submit-support-btn" style="background:{config.get('primaryColor', '#8B4513')};color:white;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;margin-top:8px;">Enviar</button>
     `;
-    messages.insertAdjacentHTML('beforeend', supportForm);
+    messages.appendChild(supportForm);
     messages.scrollTop = messages.scrollHeight;
+    
+    // Agregar event listener al botón de enviar
+    document.getElementById('submit-support-btn').addEventListener('click', submitSupportRequest);
   }});
 
   function submitSupportRequest() {{
-    const name = document.getElementById('support-name').value;
-    const email = document.getElementById('support-email').value;
-    const message = document.getElementById('support-message').value;
+    const nameField = document.getElementById('support-name');
+    const emailField = document.getElementById('support-email');
+    const messageField = document.getElementById('support-message');
+    const submitBtn = document.getElementById('submit-support-btn');
     
+    const name = nameField.value.trim();
+    const email = emailField.value.trim();
+    const message = messageField.value.trim();
+    
+    // Validación mejorada
     if (!name || !email || !message) {{
       alert('Por favor completa todos los campos');
       return;
     }}
+    
+    // Validar email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {{
+      alert('Por favor ingresa un email válido');
+      return;
+    }}
+    
+    // Deshabilitar botón mientras se envía
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Enviando...';
     
     fetch('https://masa-madre-chatbot-api.onrender.com/api/support/create-ticket', {{
       method: 'POST',
@@ -933,23 +1017,48 @@ def serve_widget_script():
     .then(response => response.json())
     .then(data => {{
       if (data.success) {{
-        addMessage('✅ Tu solicitud ha sido enviada. Te contactaremos pronto al email proporcionado.', 'bot');
+        // Limpiar formulario
+        nameField.value = '';
+        emailField.value = '';
+        messageField.value = '';
+        
+        // Ocultar formulario
+        const formDiv = nameField.closest('div');
+        if (formDiv) formDiv.style.display = 'none';
+        
+        addMessage(`✅ Tu solicitud ha sido enviada exitosamente. 
+        
+Ticket ID: ${{data.ticket_id}}
+Te contactaremos pronto al email: ${{email}}`, 'bot');
       }} else {{
-        addMessage('❌ Error al enviar tu solicitud. Por favor intenta nuevamente.', 'bot');
+        addMessage(`❌ Error: ${{data.error || 'No se pudo enviar tu solicitud'}}`, 'bot');
       }}
     }})
     .catch(error => {{
       addMessage('❌ Error de conexión. Por favor intenta nuevamente.', 'bot');
+    }})
+    .finally(() => {{
+      // Rehabilitar botón
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Enviar';
     }});
   }}
 
   function sendMessage() {{
     const message = input.value.trim();
     if (!message) return;
+    
+    // Anti-spam protection
+    if (!canUseButton('send', 1000)) {{
+      return;
+    }}
 
     addMessage(message, 'user');
     input.value = '';
     addMessage('Escribiendo...', 'bot');
+    
+    // Update connection status
+    updateConnectionStatus('sending');
 
     fetch('https://masa-madre-chatbot-api.onrender.com/api/shopify/chat', {{
       method: 'POST',
@@ -965,6 +1074,7 @@ def serve_widget_script():
     }})
     .then(r => r.json())
     .then(data => {{
+      updateConnectionStatus('connected');
       removeLastMessage();
       if (data.response) {{
         addMessage(data.response, 'bot', true);  // true = mostrar feedback
@@ -974,6 +1084,7 @@ def serve_widget_script():
       }}
     }})
     .catch(() => {{
+      updateConnectionStatus('error');
       removeLastMessage();
       addMessage('Error de conexión', 'bot');
     }});
@@ -991,10 +1102,21 @@ def serve_widget_script():
     if (sender === 'bot' && showFeedback && text !== 'Escribiendo...') {{
       const feedbackDiv = document.createElement('div');
       feedbackDiv.style.cssText = 'display:flex;gap:8px;margin-top:8px;';
-      feedbackDiv.innerHTML = `
-        <button onclick="sendFeedback('positive', '${{text}}')" style="background:none;border:1px solid #ddd;padding:4px 8px;border-radius:12px;cursor:pointer;font-size:12px;" title="Útil">👍</button>
-        <button onclick="sendFeedback('negative', '${{text}}')" style="background:none;border:1px solid #ddd;padding:4px 8px;border-radius:12px;cursor:pointer;font-size:12px;" title="No útil">👎</button>
-      `;
+      
+      const positiveBtn = document.createElement('button');
+      positiveBtn.innerHTML = '👍';
+      positiveBtn.title = 'Útil';
+      positiveBtn.style.cssText = 'background:none;border:1px solid #ddd;padding:4px 8px;border-radius:12px;cursor:pointer;font-size:12px;';
+      positiveBtn.addEventListener('click', (e) => sendFeedback('positive', text, e));
+      
+      const negativeBtn = document.createElement('button');
+      negativeBtn.innerHTML = '👎';  
+      negativeBtn.title = 'No útil';
+      negativeBtn.style.cssText = 'background:none;border:1px solid #ddd;padding:4px 8px;border-radius:12px;cursor:pointer;font-size:12px;';
+      negativeBtn.addEventListener('click', (e) => sendFeedback('negative', text, e));
+      
+      feedbackDiv.appendChild(positiveBtn);
+      feedbackDiv.appendChild(negativeBtn);
       div.appendChild(feedbackDiv);
     }}
     
@@ -1005,7 +1127,21 @@ def serve_widget_script():
     if (messages.lastElementChild) messages.removeChild(messages.lastElementChild);
   }}
 
-  function sendFeedback(type, responseText) {{
+  function sendFeedback(type, responseText, event) {{
+    // Anti-spam protection
+    if (!canUseButton('feedback', 2000)) {{
+      return;
+    }}
+    
+    const feedbackDiv = event.target.parentNode;
+    const feedbackBtns = feedbackDiv.querySelectorAll('button');
+    
+    // Deshabilitar botones inmediatamente
+    feedbackBtns.forEach(btn => {{
+      btn.disabled = true;
+      btn.style.opacity = '0.3';
+    }});
+    
     fetch('https://masa-madre-chatbot-api.onrender.com/api/feedback/record', {{
       method: 'POST',
       headers: {{ 'Content-Type': 'application/json' }},
@@ -1020,11 +1156,40 @@ def serve_widget_script():
     .then(response => response.json())
     .then(data => {{
       if (data.success) {{
-        console.log('Feedback enviado exitosamente');
+        // Reemplazar botones con mensaje de agradecimiento
+        feedbackDiv.innerHTML = `<span style="color:#28a745;font-size:12px;font-weight:500;">✓ ¡Gracias por tu feedback!</span>`;
+        
+        // Mostrar mensaje de agradecimiento del bot
+        const thankYouMsg = type === 'positive' ? 
+          '😊 ¡Me alegra haber sido útil!' : 
+          '🙏 Gracias por tu feedback, me ayuda a mejorar.';
+        
+        setTimeout(() => {{
+          addMessage(thankYouMsg, 'bot');
+        }}, 1000);
+        
+      }} else {{
+        // Mostrar error y rehabilitar botones
+        feedbackDiv.innerHTML = `<span style="color:#dc3545;font-size:12px;">❌ Error al enviar feedback</span>`;
+        setTimeout(() => {{
+          // Recrear botones originales
+          feedbackDiv.innerHTML = `
+            <button style="background:none;border:1px solid #ddd;padding:4px 8px;border-radius:12px;cursor:pointer;font-size:12px;" title="Útil">👍</button>
+            <button style="background:none;border:1px solid #ddd;padding:4px 8px;border-radius:12px;cursor:pointer;font-size:12px;" title="No útil">👎</button>
+          `;
+        }}, 2000);
       }}
     }})
     .catch(error => {{
       console.log('Error enviando feedback:', error);
+      feedbackDiv.innerHTML = `<span style="color:#dc3545;font-size:12px;">❌ Error de conexión</span>`;
+      setTimeout(() => {{
+        // Recrear botones originales en caso de error
+        feedbackDiv.innerHTML = `
+          <button style="background:none;border:1px solid #ddd;padding:4px 8px;border-radius:12px;cursor:pointer;font-size:12px;" title="Útil">👍</button>
+          <button style="background:none;border:1px solid #ddd;padding:4px 8px;border-radius:12px;cursor:pointer;font-size:12px;" title="No útil">👎</button>
+        `;
+      }}, 2000);
     }});
   }}
 
