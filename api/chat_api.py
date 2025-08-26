@@ -48,9 +48,10 @@ CORS(app, resources={
             "https://account.masamadremonterrey.com",
             "http://localhost:8080",
             "http://127.0.0.1:8080",
-            "*.myshopify.com",
-            "*.ngrok.io",
-            "*"
+            r"https://.*\.myshopify\.com",
+            r"https://.*\.ngrok\.io",
+            r"https://.*\.trycloudflare\.com",
+            "https://panartesanal-monterrey.myshopify.com"
         ]
     }
 })
