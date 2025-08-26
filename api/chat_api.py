@@ -11,6 +11,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '../lib'))
 
 import json
 import logging
+import uuid
 from datetime import datetime
 from flask import Flask, request, jsonify
 from dotenv import load_dotenv
@@ -584,7 +585,9 @@ def shopify_get_config():
 # --- FUNCIONES AUXILIARES PARA SHOPIFY ---
 
 def process_shopify_chat_message(message, products, config, context={}):
-    """Procesar mensaje de chat desde Shopify usando productos locales"""
+    """Procesar mensaje de chat desde Shopify combinando búsqueda semántica y productos locales"""
+    from semantic_search import generate_chatbot_response
+    
     lower_message = message.lower()
     
     # Detección de intención básica
@@ -593,7 +596,30 @@ def process_shopify_chat_message(message, products, config, context={}):
     suggested_products = []
     detected_intent = 'general'
     
-    # Si hay productos disponibles, usar búsqueda local en lugar de Pinecone
+    # Intentar primero búsqueda semántica para recetas, consejos, ofertas, etc.
+    semantic_response = None
+    try:
+        semantic_result = generate_chatbot_response(message, user_id=context.get('session_id'))
+        if semantic_result and semantic_result.get('response'):
+            semantic_response = semantic_result
+    except Exception as e:
+        print(f"Error en búsqueda semántica: {e}")
+    
+    # Si la búsqueda semántica encontró una respuesta útil, priorizarla
+    if semantic_response and len(semantic_response.get('response', '')) > 50:
+        response = semantic_response['response']
+        detected_intent = 'semantic_knowledge'
+        # Aún buscar productos relacionados para mostrar como sugerencias
+        if products:
+            suggested_products = search_shopify_products(lower_message, products, max_results=3)
+        return {
+            'response': response,
+            'suggested_products': suggested_products,
+            'detected_intent': detected_intent,
+            'sources': semantic_response.get('sources', [])
+        }
+    
+    # Si no hay respuesta semántica útil o hay productos disponibles, usar búsqueda local
     if products:
         if 'product_search' in intents or 'price_inquiry' in intents or 'availability' in intents:
             # Usar búsqueda local en productos de Shopify
@@ -646,9 +672,10 @@ def process_shopify_chat_message(message, products, config, context={}):
     
     return {
         'response': response,
-        'products': suggested_products[:4],  # Máximo 4 productos
+        'suggested_products': suggested_products[:4],  # Máximo 4 productos
         'detected_intent': detected_intent,
-        'context_used': bool(context.get('page_url'))
+        'context_used': bool(context.get('page_url')),
+        'sources': []  # Para compatibilidad con respuestas semánticas
     }
 
 
@@ -817,7 +844,7 @@ def serve_widget_script():
   window.masaMadreLoaded = true;
 
   const chatbotHtml = `
-    <div id="masa-madre-widget" style="position:fixed;{config.get('position', 'bottom-right').replace('bottom-', 'bottom:20px;').replace('-right', 'right:20px;').replace('-left', 'left:20px;')};z-index:9999;">
+    <div id="masa-madre-widget" style="{position_css}">
       <div id="chat-toggle" style="background:{config.get('primaryColor', '#8B4513')};color:white;padding:12px 20px;border-radius:25px;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,0.15);display:flex;align-items:center;gap:8px;">
         <span>💬</span>
         <span>¿Necesitas ayuda?</span>
@@ -831,6 +858,11 @@ def serve_widget_script():
           <div style="background:#f8f9fa;padding:12px 16px;border-radius:18px;max-width:85%;border-bottom-left-radius:6px;">
             {config.get('welcomeMessage', '¡Hola! ¿En qué puedo ayudarte?')}
           </div>
+        </div>
+        <div style="padding:10px 20px;border-top:1px solid #f0f0f0;">
+          <button id="chat-support" style="width:100%;padding:8px 12px;background:#f8f9fa;color:#666;border:1px solid #ddd;border-radius:15px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;gap:6px;">
+            💬 Hablar con alguien
+          </button>
         </div>
         <div style="padding:20px;border-top:1px solid #eee;display:flex;gap:10px;">
           <input type="text" id="chat-input" placeholder="Escribe tu mensaje..." style="flex:1;padding:12px 16px;border:1px solid #ddd;border-radius:20px;outline:none;">
@@ -848,6 +880,7 @@ def serve_widget_script():
   const input = document.getElementById('chat-input');
   const send = document.getElementById('chat-send');
   const messages = document.getElementById('chat-messages');
+  const supportBtn = document.getElementById('chat-support');
 
   let isOpen = false;
 
@@ -860,6 +893,55 @@ def serve_widget_script():
     isOpen = false;
     window_el.style.display = 'none';
   }});
+
+  supportBtn.addEventListener('click', () => {{
+    // Mostrar formulario de soporte
+    const supportForm = `
+      <div style="background:#f8f9fa;padding:12px 16px;border-radius:18px;max-width:85%;border-bottom-left-radius:6px;">
+        <strong>💬 Formulario de Contacto</strong><br><br>
+        <input type="text" id="support-name" placeholder="Tu nombre" style="width:100%;padding:8px;margin:4px 0;border:1px solid #ddd;border-radius:8px;"><br>
+        <input type="email" id="support-email" placeholder="Tu email" style="width:100%;padding:8px;margin:4px 0;border:1px solid #ddd;border-radius:8px;"><br>
+        <textarea id="support-message" placeholder="¿En qué podemos ayudarte?" style="width:100%;padding:8px;margin:4px 0;border:1px solid #ddd;border-radius:8px;height:60px;resize:vertical;"></textarea><br>
+        <button onclick="submitSupportRequest()" style="background:{config.get('primaryColor', '#8B4513')};color:white;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;margin-top:8px;">Enviar</button>
+      </div>
+    `;
+    messages.insertAdjacentHTML('beforeend', supportForm);
+    messages.scrollTop = messages.scrollHeight;
+  }});
+
+  function submitSupportRequest() {{
+    const name = document.getElementById('support-name').value;
+    const email = document.getElementById('support-email').value;
+    const message = document.getElementById('support-message').value;
+    
+    if (!name || !email || !message) {{
+      alert('Por favor completa todos los campos');
+      return;
+    }}
+    
+    fetch('https://masa-madre-chatbot-api.onrender.com/api/support/create-ticket', {{
+      method: 'POST',
+      headers: {{ 'Content-Type': 'application/json' }},
+      body: JSON.stringify({{
+        name: name,
+        email: email,
+        message: message,
+        shop: '{shop}',
+        user_id: getUserId()
+      }})
+    }})
+    .then(response => response.json())
+    .then(data => {{
+      if (data.success) {{
+        addMessage('✅ Tu solicitud ha sido enviada. Te contactaremos pronto al email proporcionado.', 'bot');
+      }} else {{
+        addMessage('❌ Error al enviar tu solicitud. Por favor intenta nuevamente.', 'bot');
+      }}
+    }})
+    .catch(error => {{
+      addMessage('❌ Error de conexión. Por favor intenta nuevamente.', 'bot');
+    }});
+  }}
 
   function sendMessage() {{
     const message = input.value.trim();
@@ -885,9 +967,9 @@ def serve_widget_script():
     .then(data => {{
       removeLastMessage();
       if (data.response) {{
-        addMessage(data.response, 'bot');
-        if (data.products && data.products.length > 0) {{
-          showProducts(data.products);
+        addMessage(data.response, 'bot', true);  // true = mostrar feedback
+        if (data.suggested_products && data.suggested_products.length > 0) {{
+          showProducts(data.suggested_products);
         }}
       }}
     }})
@@ -897,18 +979,53 @@ def serve_widget_script():
     }});
   }}
 
-  function addMessage(text, sender) {{
+  function addMessage(text, sender, showFeedback = false) {{
     const div = document.createElement('div');
     div.style.cssText = sender === 'user' ? 
       'background:{config.get('primaryColor', '#8B4513')};color:white;padding:12px 16px;border-radius:18px;max-width:85%;margin-left:auto;border-bottom-right-radius:6px;' :
       'background:#f8f9fa;padding:12px 16px;border-radius:18px;max-width:85%;border-bottom-left-radius:6px;';
     div.textContent = text;
     messages.appendChild(div);
+    
+    // Agregar botones de feedback para respuestas del bot (excepto "Escribiendo...")
+    if (sender === 'bot' && showFeedback && text !== 'Escribiendo...') {{
+      const feedbackDiv = document.createElement('div');
+      feedbackDiv.style.cssText = 'display:flex;gap:8px;margin-top:8px;';
+      feedbackDiv.innerHTML = `
+        <button onclick="sendFeedback('positive', '${{text}}')" style="background:none;border:1px solid #ddd;padding:4px 8px;border-radius:12px;cursor:pointer;font-size:12px;" title="Útil">👍</button>
+        <button onclick="sendFeedback('negative', '${{text}}')" style="background:none;border:1px solid #ddd;padding:4px 8px;border-radius:12px;cursor:pointer;font-size:12px;" title="No útil">👎</button>
+      `;
+      div.appendChild(feedbackDiv);
+    }}
+    
     messages.scrollTop = messages.scrollHeight;
   }}
 
   function removeLastMessage() {{
     if (messages.lastElementChild) messages.removeChild(messages.lastElementChild);
+  }}
+
+  function sendFeedback(type, responseText) {{
+    fetch('https://masa-madre-chatbot-api.onrender.com/api/feedback/record', {{
+      method: 'POST',
+      headers: {{ 'Content-Type': 'application/json' }},
+      body: JSON.stringify({{
+        user_id: getUserId(),
+        shop: '{shop}',
+        feedback_type: type,
+        response_text: responseText,
+        timestamp: new Date().toISOString()
+      }})
+    }})
+    .then(response => response.json())
+    .then(data => {{
+      if (data.success) {{
+        console.log('Feedback enviado exitosamente');
+      }}
+    }})
+    .catch(error => {{
+      console.log('Error enviando feedback:', error);
+    }});
   }}
 
   function showProducts(products) {{
@@ -942,6 +1059,113 @@ def serve_widget_script():
     
     return script_content, 200, {'Content-Type': 'application/javascript'}
 
+
+# --- ENDPOINT PARA CREAR TICKETS DE SOPORTE ---
+@app.route('/api/support/create-ticket', methods=['POST'])
+def create_support_ticket():
+    """Crear ticket de soporte desde el widget"""
+    try:
+        data = request.get_json()
+        
+        # Validar datos requeridos
+        required_fields = ['name', 'email', 'message', 'shop']
+        for field in required_fields:
+            if not data.get(field):
+                return jsonify({
+                    'success': False,
+                    'error': f'Campo requerido: {field}'
+                }), 400
+        
+        # Crear ticket de soporte
+        ticket_data = {
+            'id': str(uuid.uuid4()),
+            'name': data['name'],
+            'email': data['email'],
+            'message': data['message'],
+            'shop': data['shop'],
+            'user_id': data.get('user_id', 'anonymous'),
+            'timestamp': datetime.now().isoformat(),
+            'status': 'open'
+        }
+        
+        # Aquí podrías integrarlo con tu sistema de tickets real
+        # Por ahora, solo log y email
+        logger.info(f"Nuevo ticket de soporte: {ticket_data}")
+        
+        # Opcional: Enviar email de notificación
+        try:
+            from support_system_improved import create_support_ticket as create_ticket
+            create_ticket(
+                data['name'], 
+                data['email'], 
+                data['message'],
+                data.get('user_id', 'anonymous')
+            )
+        except Exception as e:
+            logger.warning(f"Error enviando email de soporte: {e}")
+        
+        return jsonify({
+            'success': True,
+            'message': 'Ticket creado exitosamente',
+            'ticket_id': ticket_data['id']
+        })
+        
+    except Exception as e:
+        logger.error(f"Error creando ticket de soporte: {e}")
+        return jsonify({
+            'success': False,
+            'error': 'Error interno del servidor'
+        }), 500
+
+
+# --- ENDPOINT PARA REGISTRAR FEEDBACK ---
+@app.route('/api/feedback/record', methods=['POST'])
+def record_feedback():
+    """Registrar feedback del usuario sobre respuestas del chatbot"""
+    try:
+        data = request.get_json()
+        
+        # Validar datos requeridos
+        if not data.get('feedback_type') or not data.get('user_id'):
+            return jsonify({
+                'success': False,
+                'error': 'Datos de feedback incompletos'
+            }), 400
+        
+        feedback_data = {
+            'id': str(uuid.uuid4()),
+            'user_id': data['user_id'],
+            'shop': data.get('shop', 'unknown'),
+            'feedback_type': data['feedback_type'],  # 'positive' or 'negative'
+            'response_text': data.get('response_text', ''),
+            'timestamp': data.get('timestamp', datetime.now().isoformat())
+        }
+        
+        # Registrar feedback
+        logger.info(f"Feedback recibido: {feedback_data}")
+        
+        # Opcional: Integrarlo con sistema de análisis de sentimientos
+        try:
+            from feedback_system import record_feedback as record_fb
+            record_fb(
+                feedback_data['user_id'],
+                feedback_data['feedback_type'],
+                feedback_data['response_text']
+            )
+        except Exception as e:
+            logger.warning(f"Error registrando feedback: {e}")
+        
+        return jsonify({
+            'success': True,
+            'message': 'Feedback registrado exitosamente'
+        })
+        
+    except Exception as e:
+        logger.error(f"Error registrando feedback: {e}")
+        return jsonify({
+            'success': False,
+            'error': 'Error interno del servidor'
+        }), 500
 
 
 # --- PUNTO DE ENTRADA ---
