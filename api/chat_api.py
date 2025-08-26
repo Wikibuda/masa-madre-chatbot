@@ -789,6 +789,153 @@ def serve_chatbot_script():
     
     return script_content, 200, {'Content-Type': 'application/javascript'}
 
+@app.route('/api/shopify/widget.js', methods=['GET'])
+def serve_widget_script():
+    """Sirve el script del widget del chatbot"""
+    shop = request.args.get('shop')
+    
+    if not shop or not shop.endswith('.myshopify.com'):
+        return "// Error: Invalid shop parameter", 400
+    
+    # Obtener configuración de la tienda
+    config = shop_configs.get(shop, {
+        "primaryColor": "#8B4513",
+        "welcomeMessage": "¡Hola! ¿En qué puedo ayudarte?",
+        "position": "bottom-right"
+    })
+    
+    script_content = f"""
+(function() {{
+  if (window.masaMadreLoaded) return;
+  window.masaMadreLoaded = true;
+
+  const chatbotHtml = `
+    <div id="masa-madre-widget" style="position:fixed;{config['position'].replace('bottom-', 'bottom:20px;').replace('-right', 'right:20px;').replace('-left', 'left:20px;')};z-index:9999;">
+      <div id="chat-toggle" style="background:{config['primaryColor']};color:white;padding:12px 20px;border-radius:25px;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,0.15);display:flex;align-items:center;gap:8px;">
+        <span>💬</span>
+        <span>¿Necesitas ayuda?</span>
+      </div>
+      <div id="chat-window" style="display:none;background:white;border-radius:12px;width:350px;height:500px;box-shadow:0 8px 25px rgba(0,0,0,0.15);margin-top:10px;flex-direction:column;">
+        <div style="background:{config['primaryColor']};color:white;padding:15px 20px;display:flex;justify-content:space-between;align-items:center;">
+          <span style="font-weight:600;">Asistente Masa Madre</span>
+          <button id="chat-close" style="background:none;border:none;color:white;font-size:20px;cursor:pointer;">×</button>
+        </div>
+        <div id="chat-messages" style="flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:12px;">
+          <div style="background:#f8f9fa;padding:12px 16px;border-radius:18px;max-width:85%;border-bottom-left-radius:6px;">
+            {config['welcomeMessage']}
+          </div>
+        </div>
+        <div style="padding:20px;border-top:1px solid #eee;display:flex;gap:10px;">
+          <input type="text" id="chat-input" placeholder="Escribe tu mensaje..." style="flex:1;padding:12px 16px;border:1px solid #ddd;border-radius:20px;outline:none;">
+          <button id="chat-send" style="background:{config['primaryColor']};color:white;border:none;padding:0 16px;border-radius:20px;cursor:pointer;">→</button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.body.insertAdjacentHTML('beforeend', chatbotHtml);
+
+  const toggle = document.getElementById('chat-toggle');
+  const window_el = document.getElementById('chat-window');
+  const close_btn = document.getElementById('chat-close');
+  const input = document.getElementById('chat-input');
+  const send = document.getElementById('chat-send');
+  const messages = document.getElementById('chat-messages');
+
+  let isOpen = false;
+
+  toggle.addEventListener('click', () => {{
+    isOpen = !isOpen;
+    window_el.style.display = isOpen ? 'flex' : 'none';
+  }});
+
+  close_btn.addEventListener('click', () => {{
+    isOpen = false;
+    window_el.style.display = 'none';
+  }});
+
+  function sendMessage() {{
+    const message = input.value.trim();
+    if (!message) return;
+
+    addMessage(message, 'user');
+    input.value = '';
+    addMessage('Escribiendo...', 'bot');
+
+    fetch('https://masa-madre-chatbot-api.onrender.com/api/shopify/chat', {{
+      method: 'POST',
+      headers: {{
+        'Content-Type': 'application/json',
+        'X-Shop-Domain': '{shop}'
+      }},
+      body: JSON.stringify({{
+        message: message,
+        user_id: getUserId(),
+        shop: '{shop}'
+      }})
+    }})
+    .then(r => r.json())
+    .then(data => {{
+      removeLastMessage();
+      if (data.response) {{
+        addMessage(data.response, 'bot');
+        if (data.products && data.products.length > 0) {{
+          showProducts(data.products);
+        }}
+      }}
+    }})
+    .catch(() => {{
+      removeLastMessage();
+      addMessage('Error de conexión', 'bot');
+    }});
+  }}
+
+  function addMessage(text, sender) {{
+    const div = document.createElement('div');
+    div.style.cssText = sender === 'user' ? 
+      'background:{config['primaryColor']};color:white;padding:12px 16px;border-radius:18px;max-width:85%;margin-left:auto;border-bottom-right-radius:6px;' :
+      'background:#f8f9fa;padding:12px 16px;border-radius:18px;max-width:85%;border-bottom-left-radius:6px;';
+    div.textContent = text;
+    messages.appendChild(div);
+    messages.scrollTop = messages.scrollHeight;
+  }}
+
+  function removeLastMessage() {{
+    if (messages.lastElementChild) messages.removeChild(messages.lastElementChild);
+  }}
+
+  function showProducts(products) {{
+    const html = products.slice(0,3).map(p => 
+      `<div style="border:1px solid #eee;border-radius:8px;padding:12px;margin:4px 0;">
+         <div style="font-weight:600;"><a href="${{p.url}}" target="_blank" style="color:{config['primaryColor']};text-decoration:none;">${{p.title}}</a></div>
+         <div style="color:#666;font-size:14px;">${{p.price}} ${{p.currency}}</div>
+       </div>`
+    ).join('');
+    
+    const div = document.createElement('div');
+    div.style.cssText = 'background:#f8f9fa;padding:12px 16px;border-radius:18px;max-width:95%;border-bottom-left-radius:6px;';
+    div.innerHTML = '<div style="margin-bottom:8px;font-weight:600;">Productos relacionados:</div>' + html;
+    messages.appendChild(div);
+    messages.scrollTop = messages.scrollHeight;
+  }}
+
+  function getUserId() {{
+    let id = localStorage.getItem('masaMadreUserId');
+    if (!id) {{
+      id = 'user_' + Math.random().toString(36).substr(2, 9);
+      localStorage.setItem('masaMadreUserId', id);
+    }}
+    return id;
+  }}
+
+  send.addEventListener('click', sendMessage);
+  input.addEventListener('keypress', e => e.key === 'Enter' && sendMessage());
+}})();
+"""
+    
+    return script_content, 200, {'Content-Type': 'application/javascript'}
+
+
 
 # --- PUNTO DE ENTRADA ---
 if __name__ == "__main__":
